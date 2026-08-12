@@ -1,0 +1,37 @@
+# Regenerate Dart bindings from rodinia_ffi's API (rodinia_ffi/src/api/**)
+gen:
+    cd rodinia_flutter && flutter_rust_bridge_codegen generate
+
+# Build the Rust core
+build:
+    cd rodinia_ffi && cargo build
+
+# Run the Rust core's Criterion benchmarks
+bench:
+    cd rust && cargo bench
+
+# Run the Rust core's unit tests
+test:
+    cd rodinia_ffi && cargo test
+
+# Lint the Rust core
+lint:
+    cd rodinia_ffi && cargo clippy --all-targets -- -D warnings
+
+# Analyze the Flutter plugin and example app
+analyze:
+    cd rodinia_flutter && flutter analyze
+    cd examples/rodinia_flutter_example && flutter analyze
+
+# Run the example app on a connected device/simulator
+example:
+    cd examples/rodinia_flutter_example && flutter run
+
+# Format Rust and Dart sources
+fmt:
+    cd rodinia_ffi && cargo fmt
+    cd rodinia_flutter && dart format lib
+    cd examples/rodinia_flutter_example && dart format lib
+
+# Run everything CI should check
+check: lint test analyze
