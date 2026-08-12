@@ -51,6 +51,13 @@ final count = store.increment('login.count');
 final sub = store.watch('user.*').listen((event) {
   print('Storage event: $event');
 });
+
+store.listPush('tasks', 'buy milk');
+store.listPush('tasks', 'walk dog');
+final tasks = store.listGet<String>('tasks'); 
+// ['buy milk', 'walk dog']
+store.deleteFromList('tasks', 'buy milk');
+// ['walk dog']
 ```
 
 `open` is the only async call — everything else is synchronous.
@@ -77,6 +84,9 @@ final sub = store.watch('user.*').listen((event) {
 | `purgeExpired` | `int purgeExpired()` | Immediately evicts all expired keys; returns how many were removed. |
 | `compact` | `void compact()` | Rewrites the on-disk log to drop stale/deleted history. |
 | `watch` | `Stream<StorageEvent> watch([String pattern = '*'])` | Reactive stream of storage events (`'*'`, `'auth.*'`, or an exact key). |
+| `listPush` | `int listPush<T>(String key, T item, {Duration? ttl, bool encrypted = false})` | Appends `item` to the list at `key` (missing/expired treated as empty), returns the new length. Omitting `ttl` preserves the list's existing expiry. |
+| `listGet` | `List<T>? listGet<T>(String key)` | Reads the full list at `key`; `null` if missing or expired. |
+| `deleteFromList` | `bool deleteFromList<T>(String key, T item, {Duration? ttl, bool encrypted = false})` | Removes every occurrence of `item` from the list; returns whether anything was removed. Deletes the key entirely if this empties the list. |
 
 ### `StorageEvent` variants (from `watch`)
 
