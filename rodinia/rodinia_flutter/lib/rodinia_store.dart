@@ -132,4 +132,28 @@ class RodiniaStore {
     if (T == String) return text as T;
     return jsonDecode(text) as T;
   }
+
+  void listPush<T>(String key, T item, {Duration? ttl, bool encrypted = false}) {
+    native.storeListPush(
+      key: key,
+      item: _encode(item),
+      ttlMs: ttl?.inMilliseconds,
+      encrypted: encrypted,
+    );
+  }
+
+  List<T>? listGet<T>(String key) {
+    final bytes = native.storeListGet(key: key);
+    if (bytes == null) return null;
+    return bytes.map((item) => _decode<T>(item)).toList();
+  }
+
+  bool deleteFromList<T>(String key, T item, {Duration? ttl, bool encrypted = false}) {
+    return native.storeDeleteFromList(
+      key: key,
+      item: _encode(item),
+      ttlMs: ttl?.inMilliseconds,
+      encrypted: encrypted,
+    );
+  }
 }

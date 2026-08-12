@@ -184,6 +184,172 @@ impl Store {
         self.decode_value(key, &entry).map(Some)
     }
 
+
+    pub fn list_push(
+        &self,
+        key: &str,
+        item: Vec<u8>,
+        ttl_ms: Option<i64>,
+        encrypted: bool,
+    ) -> Result<i64, StoreError> {
+        let mut cache = self.cache.write();
+        let mut wal = self.wal.lock();
+
+        let now = now_ms();
+        let existing = cache.get(key).cloned();
+        let live = existing.as_ref().filter(|e| !e.is_expired(now));
+
+        let mut list: Vec<Vec<u8>> = match live {
+            Some(e) => {
+                let decoded = self.decode_value(key, e)?;
+                bincode::deserialize(&decoded).map_err(|_| {
+                    StoreError::Serialization(format!("value for key '{key}' is not a list"))
+                })?
+            }
+            None => Vec::new(),
+        };
+        list.push(item);
+        let new_len = list.len() as i64;
+
+        let expires_at = match ttl_ms {
+            Some(_) => expires_at_from_ttl(ttl_ms),
+            None => live.and_then(|e| e.expires_at),
+        };
+
+        let serialized =
+            bincode::serialize(&list).map_err(|e| StoreError::Serialization(e.to_string()))?;
+        let stored_value = self.encode_value(key, serialized, encrypted)?;
+
+        let entry = Entry {
+            value: stored_value,
+            encrypted,
+            expires_at,
+        };
+        wal.append(&WalRecord::Set {
+            key: key.to_string(),
+            entry: entry.clone(),
+        })?;
+        cache.insert(key.to_string(), entry);
+        drop(wal);
+        drop(cache);
+
+        let was_stale = existing.is_some() && live.is_none();
+        if was_stale {
+            self.events.publish(StorageEvent::KeyExpired {
+                key: key.to_string(),
+            });
+        }
+        self.events.publish(if live.is_some() {
+            StorageEvent::KeyUpdated {
+                key: key.to_string(),
+            }
+        } else {
+            StorageEvent::KeyCreated {
+                key: key.to_string(),
+            }
+        });
+        Ok(new_len)
+    }
+
+    pub fn list_get(&self, key: &str) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
+        let cache = self.cache.read();
+        let entry = cache.get(key).cloned();
+        drop(cache);
+
+        let Some(entry) = entry else {
+            return Ok(None);
+        };
+        if entry.is_expired(now_ms()) {
+            self.expire_key(key);
+            return Ok(None);
+        }
+        let decoded = self.decode_value(key, &entry)?;
+        bincode::deserialize(&decoded)
+            .map(Some)
+            .map_err(|e| StoreError::Serialization(e.to_string()))
+    }
+
+
+    pub fn delete_from_list(
+        &self,
+        key: &str,
+        item: Vec<u8>,
+        ttl_ms: Option<i64>,
+        encrypted: bool,
+    ) -> Result<bool, StoreError> {
+        let mut cache = self.cache.write();
+        let mut wal = self.wal.lock();
+
+        let now = now_ms();
+        let Some(entry) = cache.get(key).cloned() else {
+            return Ok(false);
+        };
+
+        if entry.is_expired(now) {
+            cache.remove(key);
+            wal.append(&WalRecord::Delete {
+                key: key.to_string(),
+            })?;
+            drop(wal);
+            drop(cache);
+            self.events.publish(StorageEvent::KeyExpired {
+                key: key.to_string(),
+            });
+            return Ok(false);
+        }
+
+        let decoded = self.decode_value(key, &entry)?;
+        let mut list: Vec<Vec<u8>> = bincode::deserialize(&decoded).map_err(|_| {
+            StoreError::Serialization(format!("value for key '{key}' is not a list"))
+        })?;
+
+        let before = list.len();
+        list.retain(|i| *i != item);
+        if list.len() == before {
+            return Ok(false);
+        }
+
+        if list.is_empty() {
+            cache.remove(key);
+            wal.append(&WalRecord::Delete {
+                key: key.to_string(),
+            })?;
+            drop(wal);
+            drop(cache);
+            self.events.publish(StorageEvent::KeyDeleted {
+                key: key.to_string(),
+            });
+            return Ok(true);
+        }
+
+        let expires_at = match ttl_ms {
+            Some(_) => expires_at_from_ttl(ttl_ms),
+            None => entry.expires_at,
+        };
+
+        let serialized =
+            bincode::serialize(&list).map_err(|e| StoreError::Serialization(e.to_string()))?;
+        let stored_value = self.encode_value(key, serialized, encrypted)?;
+        let new_entry = Entry {
+            value: stored_value,
+            encrypted,
+            expires_at,
+        };
+        wal.append(&WalRecord::Set {
+            key: key.to_string(),
+            entry: new_entry.clone(),
+        })?;
+        cache.insert(key.to_string(), new_entry);
+        drop(wal);
+        drop(cache);
+
+        self.events.publish(StorageEvent::KeyUpdated {
+            key: key.to_string(),
+        });
+        Ok(true)
+    }
+
+
     fn expire_key(&self, key: &str) {
         let removed = {
             let mut cache = self.cache.write();
@@ -613,6 +779,36 @@ mod tests {
         store.set("key1".to_string(), b"value1".to_vec(), None, false).unwrap();
         store.compact().unwrap();
         assert!(store.wal_path.exists());
+        let _ = std::fs::remove_dir_all(&test_dir);
+        Ok(())
+    }
+    
+    #[test]
+    fn test_add_to_list() -> Result<(), StoreError> {
+        let test_dir = temp_test_dir();
+        let store = Store::open(&test_dir).unwrap();
+        store.list_push("list1", b"value1".to_vec(), None, false).unwrap();
+        assert_eq!(store.list_get("list1").unwrap(), Some(vec![b"value1".to_vec()]));
+        let _ = std::fs::remove_dir_all(&test_dir);
+        Ok(())
+    }
+    #[test]
+    fn test_delete_from_list() -> Result<(), StoreError> {
+        let test_dir = temp_test_dir();
+        let store = Store::open(&test_dir).unwrap();
+        store.list_push("list1", b"value1".to_vec(), None, false).unwrap();
+        let result = store.delete_from_list("list1", b"value1".to_vec(), None, false).unwrap();
+        assert!(result);
+        let _ = std::fs::remove_dir_all(&test_dir);
+        Ok(())    
+    }
+
+    #[test]
+    fn test_list_get() -> Result<(), StoreError> {
+        let test_dir = temp_test_dir();
+        let store = Store::open(&test_dir).unwrap();
+        store.list_push("list1", b"value1".to_vec(), None, false).unwrap();
+        assert_eq!(store.list_get("list1").unwrap(), Some(vec![b"value1".to_vec()]));
         let _ = std::fs::remove_dir_all(&test_dir);
         Ok(())
     }

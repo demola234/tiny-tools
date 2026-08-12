@@ -21,11 +21,14 @@ class RodiniaStoreExample extends StatefulWidget {
 }
 
 class _RodiniaStoreExampleState extends State<RodiniaStoreExample> {
+  static const _tasksKey = 'tasks';
+
   final _events = <String>[];
   late final StreamSubscription<StorageEvent> _subscription;
   late final TextEditingController _themeController;
   late final TextEditingController _lookupKeyController;
   late final TextEditingController _lookupValueController;
+  late final TextEditingController _taskController;
   bool _lookupEncrypted = false;
   String? _lookupResult;
 
@@ -39,6 +42,7 @@ class _RodiniaStoreExampleState extends State<RodiniaStoreExample> {
     );
     _lookupKeyController = TextEditingController();
     _lookupValueController = TextEditingController();
+    _taskController = TextEditingController();
     _subscription = _store.watch().listen((event) {
       setState(() => _events.insert(0, event.toString()));
     });
@@ -50,6 +54,7 @@ class _RodiniaStoreExampleState extends State<RodiniaStoreExample> {
     _themeController.dispose();
     _lookupKeyController.dispose();
     _lookupValueController.dispose();
+    _taskController.dispose();
     super.dispose();
   }
 
@@ -68,6 +73,19 @@ class _RodiniaStoreExampleState extends State<RodiniaStoreExample> {
   void _setEncryptedSecret() => setState(() {
     _store.setEncryptionKey(RodiniaStore.generateEncryptionKey());
     _store.set('refresh_token', 'super-secret-token', encrypted: true);
+  });
+
+  void _addTask() {
+    final task = _taskController.text.trim();
+    if (task.isEmpty) return;
+    setState(() {
+      _store.listPush<String>(_tasksKey, task);
+      _taskController.clear();
+    });
+  }
+
+  void _removeTask(String task) => setState(() {
+    _store.deleteFromList<String>(_tasksKey, task);
   });
 
   void _lookupKey() {
@@ -93,20 +111,7 @@ void _setLookupValue() {
     }
   }
 
-  /// Reads [key] as its raw text representation, whatever type it was
-  /// originally `set()` with — `set(k, "hi")` stores UTF-8 text directly,
-  /// and `set(k, 5)`/`set(k, true)`/etc. store their JSON text ("5",
-  /// "true"), so decoding as plain text is a reasonable generic viewer for
-  /// any key without knowing its type up front.
-  ///
-  /// The encryption key lives only in memory (by design — see
-  /// `RodiniaStore.setEncryptionKey`), so if the app is relaunched as a
-  /// fresh process after an encrypted value was written in an earlier run,
-  /// the on-disk entry is still there but undecryptable until the key is
-  /// set again. `store.get()` surfaces that as
-  /// `StoreError.encryptionKeyNotSet` rather than silently returning null,
-  /// so callers can tell "no value" apart from "value present but its key
-  /// isn't loaded".
+
   String _readAsText(String key) {
     try {
       return _store.get<String>(key) ?? '(not set)';
@@ -208,6 +213,38 @@ void _setLookupValue() {
               const SizedBox(height: 8),
               Text(_lookupResult!),
             ],
+            const Divider(height: 32),
+            const Text(
+              'store.listPush / listGet / deleteFromList:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _taskController,
+                    decoration: const InputDecoration(labelText: 'new task'),
+                    onSubmitted: (_) => _addTask(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _addTask,
+                  child: const Text('Add'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final task in _store.listGet<String>(_tasksKey) ?? const [])
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(task),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _removeTask(task),
+                ),
+              ),
             const Divider(height: 32),
             const Text(
               'Live events from store.watch():',

@@ -106,3 +106,18 @@ pub fn store_watch(pattern: String, sink: StreamSink<StorageEvent>) -> Result<()
     store()?.subscribe(pattern, sink);
     Ok(())
 }
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn store_list_push(key: String, item: Vec<u8>, ttl_ms: Option<i64>, encrypted: bool) -> Result<i64, StoreError> {
+    store()?.list_push(&key, item, ttl_ms, encrypted)
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn store_list_get(key: String) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
+    store()?.list_get(&key)
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn store_delete_from_list(key: String, item: Vec<u8>, ttl_ms: Option<i64>, encrypted: bool) -> Result<bool, StoreError> {
+    store()?.delete_from_list(&key, item, ttl_ms, encrypted)
+}

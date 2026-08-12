@@ -81,3 +81,30 @@ void storeCompact() => RustLib.instance.api.crateApiStoreStoreCompact();
 
 Stream<StorageEvent> storeWatch({required String pattern}) =>
     RustLib.instance.api.crateApiStoreStoreWatch(pattern: pattern);
+
+PlatformInt64 storeListPush({
+  required String key,
+  required List<int> item,
+  PlatformInt64? ttlMs,
+  required bool encrypted,
+}) => RustLib.instance.api.crateApiStoreStoreListPush(
+  key: key,
+  item: item,
+  ttlMs: ttlMs,
+  encrypted: encrypted,
+);
+
+List<Uint8List>? storeListGet({required String key}) =>
+    RustLib.instance.api.crateApiStoreStoreListGet(key: key);
+
+bool storeDeleteFromList({
+  required String key,
+  required List<int> item,
+  PlatformInt64? ttlMs,
+  required bool encrypted,
+}) => RustLib.instance.api.crateApiStoreStoreDeleteFromList(
+  key: key,
+  item: item,
+  ttlMs: ttlMs,
+  encrypted: encrypted,
+);
