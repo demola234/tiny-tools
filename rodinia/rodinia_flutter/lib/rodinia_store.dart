@@ -21,17 +21,6 @@ class RodiniaStore {
   ///
   /// [path] should point at a directory inside the app's private sandbox,
   /// typically `(await getApplicationDocumentsDirectory()).path`.
-  ///
-  /// This also performs one-time initialization of the Rust bridge, so call
-  /// it instead of `RustLib.init()` directly — calling `RustLib.init()`
-  /// yourself as well would throw on the second call.
-  ///
-  /// Safe to call again with the same [path] after a Flutter *hot restart*:
-  /// hot restart reruns Dart's `main()` but the native library (and the
-  /// Rust-side store it already opened) stays loaded, so this skips
-  /// re-opening rather than throwing `StoreError.alreadyInitialized()`. A
-  /// second call with a *different* path is still a no-op against the
-  /// original path — the store is a process-wide singleton, opened once.
   static Future<RodiniaStore> open(String path) async {
     if (!RustLib.instance.initialized) {
       await RustLib.init();
@@ -47,10 +36,6 @@ class RodiniaStore {
   /// [value] may be a [String], [bool], [num], a `Uint8List`/`List<int>`, or
   /// any object supported by [jsonEncode] (e.g. a `Map`/`List` of the
   /// above) — it is encoded to bytes before crossing into Rust.
-  ///
-  /// Pass [ttl] to have the value automatically expire (see [watch] for the
-  /// resulting `KeyExpired` event), and [encrypted] to store it under
-  /// AES-256-GCM via [setEncryptionKey].
   void set<T>(String key, T value, {Duration? ttl, bool encrypted = false}) {
     native.storeSet(
       key: key,
@@ -93,11 +78,6 @@ class RodiniaStore {
   /// The number of currently-live keys.
   int get length => native.storeLen();
 
-  /// Installs the AES-256-GCM key used for values written with
-  /// `encrypted: true`. The key lives only in memory for this process — the
-  /// app is responsible for generating it once via [generateEncryptionKey]
-  /// and persisting it somewhere like platform secure storage
-  /// (`flutter_secure_storage`, Keychain/Keystore), not alongside the store.
   void setEncryptionKey(Uint8List key) =>
       native.storeSetEncryptionKey(key: key);
 
@@ -127,8 +107,7 @@ class RodiniaStore {
   }
 
   /// Evicts all expired keys immediately (rather than lazily, on next
-  /// access) and returns how many were removed. Useful to call periodically
-  /// from a `Timer` if you want prompt `KeyExpired` events.
+  /// access) and returns how many were removed.
   int purgeExpired() => native.storePurgeExpired();
 
   /// Rewrites the on-disk log to contain only current, live entries,
