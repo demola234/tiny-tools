@@ -2,7 +2,7 @@
 tags: [mockmachina, phase-0, spec, go, tdd]
 date: 2026-10-06
 phase: 0
-status: draft — awaiting decisions in §1
+status: decisions closed; building
 ---
 
 # Phase 0 Spec
@@ -14,7 +14,7 @@ The complete build specification for Phase 0. It covers every package, file, exp
 - The **decisions** are in `docs/decisions/` (ADRs 001–007).
 - [[Phase 0 Build Guide]] stays as the gentle walkthrough. Where they differ, this spec wins.
 
-Nothing in §3 onwards is built until §1 is closed.
+All 18 decisions in §1 were agreed on 2026-10-06, each as recommended.
 
 ---
 
@@ -24,24 +24,24 @@ Writing the spec at this level turned up gaps the playbook left open. Every one 
 
 | # | Question | Recommendation | Why | Status |
 | --- | --- | --- | --- | --- |
-| P0-01 | How are durations written in route files? | Go duration strings everywhere: `latency: 250ms`, `interval: 5s`. Long form: `latency: { base: 250ms, jitter: 50ms }`. **Replaces the playbook's `latency: { ms, jitter }`** | One rule for every timed field (latency, intervals, delays, fault timing); units are visible; `time.ParseDuration` parses it | Open |
-| P0-02 | Is `owners.backend` one handle or a list? | A list: `owners: { backend: [ademola], frontend: [ade-fe] }` | Teams share endpoints; changing scalar to list later is a format break | Open |
-| P0-03 | What is the grammar for rule conditions (`when`)? | A mapping of selector → value; all must match. A plain value means equals; an operator mapping means `{op: value}`. Details in §4.4 | It must be frozen now even though rules only run in Phase 5 | Open |
-| P0-04 | What shape is `fault`? | One field for all protocols: a string shorthand (`fault: reset`) or `{ type, rate, after }`. The allowed types depend on the protocol | Covers HTTP (`timeout`, `reset`, `truncated`) and streams (`drop`, `close`, `delay`, `duplicate`); `rate` gives Phase 5's failure rates without a new field | Open |
-| P0-05 | What does a scalar `body` mean? | A scalar is always a file path relative to the route folder, except the reserved word `generate`. A mapping or sequence is inline JSON. A literal text body needs a file. If `body` is omitted, `<state>.json` is used when it exists; otherwise there is no body, with a **warning** unless the status is 204 or 304 | No guessing about whether `ok` is a file or text; typos in implicit files surface as warnings | Open |
-| P0-06 | Are YAML anchors and merge keys allowed? | Aliases (`*name`) yes; merge keys (`<<:`) rejected with a hint | Aliases resolve cleanly in the node tree; merge keys complicate line numbers and unknown-field checks | Open |
-| P0-07 | Can state names be YAML special words? | No: reserve `true`, `false`, `null`, `yes`, `no`, `on`, `off`, `y`, `n` | `active: no` would be read as a boolean by some YAML tools | Open |
+| P0-01 | How are durations written in route files? | Go duration strings everywhere: `latency: 250ms`, `interval: 5s`. Long form: `latency: { base: 250ms, jitter: 50ms }`. **Replaces the playbook's `latency: { ms, jitter }`** | One rule for every timed field (latency, intervals, delays, fault timing); units are visible; `time.ParseDuration` parses it | Agreed 2026-10-06 |
+| P0-02 | Is `owners.backend` one handle or a list? | A list: `owners: { backend: [ademola], frontend: [ade-fe] }` | Teams share endpoints; changing scalar to list later is a format break | Agreed 2026-10-06 |
+| P0-03 | What is the grammar for rule conditions (`when`)? | A mapping of selector → value; all must match. A plain value means equals; an operator mapping means `{op: value}`. Details in §4.4 | It must be frozen now even though rules only run in Phase 5 | Agreed 2026-10-06 |
+| P0-04 | What shape is `fault`? | One field for all protocols: a string shorthand (`fault: reset`) or `{ type, rate, after }`. The allowed types depend on the protocol | Covers HTTP (`timeout`, `reset`, `truncated`) and streams (`drop`, `close`, `delay`, `duplicate`); `rate` gives Phase 5's failure rates without a new field | Agreed 2026-10-06 |
+| P0-05 | What does a scalar `body` mean? | A scalar is always a file path relative to the route folder, except the reserved word `generate`. A mapping or sequence is inline JSON. A literal text body needs a file. If `body` is omitted, `<state>.json` is used when it exists; otherwise there is no body, with a **warning** unless the status is 204 or 304 | No guessing about whether `ok` is a file or text; typos in implicit files surface as warnings | Agreed 2026-10-06 |
+| P0-06 | Are YAML anchors and merge keys allowed? | Aliases (`*name`) yes; merge keys (`<<:`) rejected with a hint | Aliases resolve cleanly in the node tree; merge keys complicate line numbers and unknown-field checks | Agreed 2026-10-06 |
+| P0-07 | Can state names be YAML special words? | No: reserve `true`, `false`, `null`, `yes`, `no`, `on`, `off`, `y`, `n` | `active: no` would be read as a boolean by some YAML tools | Agreed 2026-10-06 |
 | P0-08 | What exit code do usage errors get? | 2 for bad flags, arguments or unknown commands; 1 for problems found or failure to run; 0 for success | Unix convention; scripts can tell "you called it wrong" from "your project is wrong" | Agreed 2026-10-06 |
 | P0-09 | Where does `.mockmachina` get found? | Search upward from the working directory, like git. `--dir` overrides | Works from any subfolder of an app or monorepo | Agreed 2026-10-06 |
-| P0-10 | What type is `seed`? | Unsigned 64-bit; `0` means pick a random seed at start and log it | Matches the PCG generator; negative seeds have no meaning | Open |
-| P0-11 | What is the default `locale`? | `en`. The playbook's `en_NG` remains the example in docs | A neutral default; Nigerian teams set `en_NG` | Open |
-| P0-12 | How are problems identified in output? | Every problem has a stable code (`unknown-field`). Warnings print with a `warning:` prefix; errors print as in the playbook | Codes feed `--format json` (Phase 2), docs and tests; the prefix tells warnings apart in plain output | Open |
-| P0-13 | What does the loader return? | `(*model.Project, config.Problems, error)`. `error` only when loading couldn't run at all (folder unreadable). The project is returned even with error-level problems, so `lint` and the dashboard can show everything | Separates "your files are wrong" from "MockMachina couldn't read them" | Open |
-| P0-14 | Does `config.yaml` get a published schema too? | Yes: `schema/config.schema.json` next to `route.schema.json` | Same editor help for the other file people edit by hand | Open |
+| P0-10 | What type is `seed`? | Unsigned 64-bit; `0` means pick a random seed at start and log it | Matches the PCG generator; negative seeds have no meaning | Agreed 2026-10-06 |
+| P0-11 | What is the default `locale`? | `en`. The playbook's `en_NG` remains the example in docs | A neutral default; Nigerian teams set `en_NG` | Agreed 2026-10-06 |
+| P0-12 | How are problems identified in output? | Every problem has a stable code (`unknown-field`). Warnings print with a `warning:` prefix; errors print as in the playbook | Codes feed `--format json` (Phase 2), docs and tests; the prefix tells warnings apart in plain output | Agreed 2026-10-06 |
+| P0-13 | What does the loader return? | `(*model.Project, config.Problems, error)`. `error` only when loading couldn't run at all (folder unreadable). The project is returned even with error-level problems, so `lint` and the dashboard can show everything | Separates "your files are wrong" from "MockMachina couldn't read them" | Agreed 2026-10-06 |
+| P0-14 | Does `config.yaml` get a published schema too? | Yes: `schema/config.schema.json` next to `route.schema.json` | Same editor help for the other file people edit by hand | Agreed 2026-10-06 |
 | P0-15 | How do version and commit get into the binary? | `internal/buildinfo` reads Go's embedded build info; `-ldflags` may override the version for releases | Go already embeds the commit and dirty flag; `go install …@v0.1.0` then reports the right version with no ldflags | Agreed 2026-10-06 |
 | P0-16 | Where do shared test fixtures live? | Module-root `testdata/` plus an `internal/testkit` package for golden files, fixture paths and in-memory projects | Fixtures are shared by `config`, `cli` scripts and the schema tests | Agreed 2026-10-06 |
-| P0-17 | Which route fields can carry `x-` extensions? | Route level and state level. They're kept verbatim and written back unchanged | Enough for OpenAPI operation and response extensions in Phase 2 | Open |
-| P0-18 | Where can rules read from? | Scopes `path`, `query`, `header`, `cookie`, `body`, `var`, plus `call` (the nth call to this route) | `cookie` is common for session-based apps and costs nothing to add now | Open |
+| P0-17 | Which route fields can carry `x-` extensions? | Route level and state level. They're kept verbatim and written back unchanged | Enough for OpenAPI operation and response extensions in Phase 2 | Agreed 2026-10-06 |
+| P0-18 | Where can rules read from? | Scopes `path`, `query`, `header`, `cookie`, `body`, `var`, plus `call` (the nth call to this route) | `cookie` is common for session-based apps and costs nothing to add now | Agreed 2026-10-06 |
 
 ---
 
@@ -1452,7 +1452,7 @@ Tasks 3, 4 and 12 can run in parallel after 2. Tasks 5 and 6 can run in parallel
 
 ## 18. Exit checklist
 
-- [ ] §1 decisions closed and reflected in ADRs where they change one
+- [x] §1 decisions closed (2026-10-06); none changes an ADR; P0-01 updates the playbook
 - [ ] Tasks 1–14 done
 - [ ] `exit_phase0_version.txtar` and `exit_phase0_invalid_route.txtar` green on Linux, macOS and Windows, with both Go versions
 - [ ] `docs/file-format.md` and both schemas reviewed by one backend and one frontend developer: **format frozen**

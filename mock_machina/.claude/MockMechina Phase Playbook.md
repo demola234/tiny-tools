@@ -188,7 +188,7 @@ ai: { enabled: false }
 | Group | Fields | Used from |
 | --- | --- | --- |
 | HTTP response | `status`, `headers`, `body` (file, inline JSON, or `generate`) | 1 |
-| Timing | `latency: { ms, jitter }` | 1 (ms), 5 (jitter) |
+| Timing | `latency: 250ms` or `latency: { base, jitter }`, as Go duration strings (changed from `{ ms, jitter }` by Phase 0 Spec P0-01) | 1 (base), 5 (jitter) |
 | Faults | `fault: timeout \| reset \| truncated` | 5 |
 | Side effects | `set` (variables), `callbacks` | 5, 6 |
 | WebSocket / SSE script | `onConnect`, `on`, `every`, `reject`, `fault` (drop, close, delay, duplicate) | 6 |
