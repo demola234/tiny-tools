@@ -30,6 +30,8 @@ jobs:
         with:
           go-version: stable
           cache-dependency-path: mock_machina/go.sum
+      - name: Go floor unchanged (engineering.md §1)
+        run: grep -qx 'go 1.25.0' go.mod || { echo "go.mod must say go 1.25.0; a dependency raised it"; exit 1; }
       - run: go mod tidy -diff
       - run: go vet ./...
       - uses: golangci/golangci-lint-action@v9
@@ -57,6 +59,6 @@ jobs:
           cache-dependency-path: mock_machina/go.sum
       - run: go test -race -shuffle=on -count=1 -cover ./...
       - run: go build -o bin/ ./cmd/mockmachina
-      # Task 3 replaces --help with --version (Phase 0 exit criterion 1).
-      - run: ./bin/mockmachina --help
+      # Phase 0 exit criterion 1: the built binary reports its version.
+      - run: ./bin/mockmachina --version | grep -E '^mockmachina version (v[0-9]|\(devel\))'
         shell: bash

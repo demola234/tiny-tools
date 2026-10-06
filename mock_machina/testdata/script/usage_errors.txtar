@@ -1,0 +1,10 @@
+# Calling mockmachina wrongly fails with a message on stderr, as Fang shows it
+# to users. TestRun checks the exit code is 2; testscript can only tell zero
+# from non-zero.
+! exec mockmachina --nope
+! stdout .
+stderr 'Unknown flag: --nope\.'
+
+! exec mockmachina nope
+! stdout .
+stderr 'Unknown command "nope" for "mockmachina"\.'

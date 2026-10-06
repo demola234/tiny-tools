@@ -31,8 +31,12 @@ tdd pkg:
 update-golden:
     go test ./... -update
 
+# Oldest Go we support (engineering.md §1). Raising it is a deliberate change.
+go_floor := "1.25.0"
+
 # static checks
 lint:
+    grep -qx 'go {{go_floor}}' go.mod || (echo "go.mod must say go {{go_floor}}; a dependency raised it" && exit 1)
     go mod tidy -diff
     go vet ./...
     golangci-lint run
@@ -51,6 +55,9 @@ cover:
 build:
     go build -o bin/ ./cmd/mockmachina
 
+# check the built binary reports its version (Phase 0 exit criterion 1)
+smoke: build
+    ./bin/mockmachina --version | grep -E '^mockmachina version (v[0-9]|\(devel\))'
+
 # everything CI runs
-ci: lint test vuln build
-    ./bin/mockmachina --help
+ci: lint test vuln smoke
