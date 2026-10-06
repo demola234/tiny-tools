@@ -7,6 +7,8 @@ status: in-progress
 
 # Phase 0 Build Guide
 
+> The authoritative detail for every task now lives in [[Phase 0 Spec]]. This guide remains the friendly walkthrough; where they differ, the spec wins.
+
 How to build Phase 0 of [[MockMechina Phase Playbook]] task by task. The playbook says *what* and *why*; this guide says *how*, with Go pointers for each step. The architecture is in [[MockMachina System Design]] (https://claude.ai/artifact/KtinJTkvKK6WppQqvV52L4). You write the code; bring each task back for review when its tests pass.
 
 ## How we work: test first, always
@@ -374,8 +376,8 @@ Then write the doc, one complete route per protocol (HTTP, WS, SSE, gRPC, CRUD, 
 
 ## Progress
 
-- [ ] 0 Scaffold builds (first test green)
-- [ ] 1 ADRs 001–007
+- [x] 0 Scaffold builds (first test green) — fe81932
+- [x] 1 ADRs 001–007 (drafted, awaiting your edit)
 - [ ] 2 Plumbing and CI (seen red once)
 - [ ] 3 `--version`
 - [ ] 4 Model
