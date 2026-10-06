@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	charm.land/fang/v2 v2.0.1
+	github.com/google/go-cmp v0.7.0
 	github.com/rogpeppe/go-internal v1.16.0
 	github.com/spf13/cobra v1.10.2
 )

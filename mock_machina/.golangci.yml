@@ -76,6 +76,8 @@ linters:
     gosec:
       excludes:
         - G304 # file paths come from fs.FS (validated) or tests
+        - G301 # 0o755 folders and 0o644 files are intended: project files are
+        - G306 #   shared source files in git (engineering.md §9)
     misspell:
       locale: US
     nolintlint:
@@ -108,6 +110,11 @@ linters:
       - path: internal/cli/script_test\.go
         linters: [forbidigo]
         text: "os\\.Exit"
+      # Test-only helper: go test sets the working directory to the package
+      # folder, which is how testkit finds the module's testdata.
+      - path: internal/testkit/path\.go
+        linters: [forbidigo]
+        text: "os\\.Getwd"
 
 formatters:
   enable: [gofumpt, goimports]
