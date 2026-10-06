@@ -1223,6 +1223,17 @@ var version string // set with -ldflags -X for release builds
 
 ### 11.2 `cli`
 
+*As built in task 3 (authoritative where it differs from the plan below):*
+
+- `Run(ctx context.Context, env Env) int` with `type Env struct{ Args []string; Stdout, Stderr io.Writer; Info buildinfo.Info }`. A struct, not five parameters (engineering.md §15), and tests pass buffers instead of capturing the process output.
+- `NewRootCmd()` takes no parameters; only `Run` needs the build info.
+- Exit codes, `ExitError`, `ExitCode` and the exported `UsageError(err) error` live in `exit.go`.
+- Unknown commands are usage errors (the root has `cobra.ArbitraryArgs` and a `RunE` that rejects arguments); without that, Cobra silently accepted `mockmachina nope`.
+- Users see errors as Fang renders them: an ERROR box, the first letter capitalised, a final full stop (`Unknown flag: --nope.`). Tests pin that text.
+- "Did you mean" suggestions for unknown commands come in task 11, test-first, when `lint` exists to be suggested.
+- `just smoke` and the CI step check `--version` output, not just the exit status.
+- `golang.org/x/text` is pinned at v0.39.0: v0.24.0 (via Fang) had GO-2026-5970, reachable from `cli.Run`, and v0.42.0 needs Go 1.26. `just lint` and CI now fail if `go.mod`'s `go` line changes.
+
 ```go
 // run.go
 // Run executes the command line and returns the process exit code. It is the
