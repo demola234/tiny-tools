@@ -1,0 +1,5 @@
+* text=auto
+*.go text eol=lf
+*.json text eol=lf
+testdata/** text eol=lf
+testdata/**/crlf-* text eol=crlf

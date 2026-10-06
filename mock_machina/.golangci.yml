@@ -1,0 +1,116 @@
+version: "2"
+
+run:
+  go: "1.25"
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose
+    - contextcheck
+    - depguard
+    - errname
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - gochecknoinits
+    - gocognit
+    - gocritic
+    - gosec
+    - intrange
+    - misspell
+    - modernize
+    - nestif
+    - nilerr
+    - noctx
+    - nolintlint
+    - perfsprint
+    - prealloc
+    - revive
+    - testpackage
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - usestdlibvars
+  settings:
+    depguard:
+      rules:
+        no-old-libs:
+          deny:
+            - pkg: math/rand$
+              desc: use internal/seed (math/rand/v2 underneath)
+            - pkg: gopkg.in/yaml.v3
+              desc: use go.yaml.in/yaml/v3 (ADR 003)
+            - pkg: github.com/pkg/errors
+              desc: use the standard errors package
+            - pkg: github.com/stretchr/testify
+              desc: use the standard library and go-cmp (engineering.md §10)
+        yaml-only-in-config:
+          files: ["$all", "!**/internal/config/**"]
+          deny:
+            - pkg: go.yaml.in/yaml
+              desc: only internal/config reads or writes YAML
+        fang-only-in-run:
+          files: ["$all", "!**/internal/cli/run.go"]
+          deny:
+            - pkg: charm.land/fang
+              desc: Fang is called only in cli.Run (ADR 004)
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocognit:
+      min-complexity: 15 # engineering.md §15
+    nestif:
+      min-complexity: 4
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^(fmt\.Print.*|print|println)$
+          msg: write through the command's writers (engineering.md §8)
+        - pattern: ^time\.(Now|Since|Until|Sleep|After|AfterFunc|NewTimer|NewTicker|Tick)$
+          msg: use internal/clock (engineering.md §7)
+        - pattern: ^os\.Exit$
+          msg: only main may exit; return an error instead
+        - pattern: ^os\.(Chdir|Getwd)$
+          msg: take the directory as a parameter
+    gosec:
+      excludes:
+        - G304 # file paths come from fs.FS (validated) or tests
+    misspell:
+      locale: US
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: var-naming
+        - name: receiver-naming
+        - name: error-strings
+        - name: error-naming
+        - name: unused-receiver
+        - name: context-as-argument
+        - name: early-return
+        - name: indent-error-flow
+  exclusions:
+    presets: [std-error-handling, common-false-positives]
+    rules:
+      - path: cmd/mockmachina/main\.go
+        linters: [forbidigo]
+        text: "os\\.(Exit|Getwd)"
+      - path: internal/clock/
+        linters: [forbidigo]
+        text: "time\\."
+      - path: internal/cli/find\.go
+        linters: [forbidigo]
+        text: "os\\.Getwd"
+      - path: internal/cli/script_test\.go
+        linters: [forbidigo]
+        text: "os\\.Exit"
+
+formatters:
+  enable: [gofumpt, goimports]
+  settings:
+    goimports:
+      local-prefixes: [github.com/demola234/tiny-tools/mock_machina]

@@ -1,0 +1,56 @@
+set windows-shell := ["pwsh", "-NoProfile", "-Command"]
+
+# Pinned tool versions. Tools run with `go run pkg@version` so they never
+# enter go.mod: their own Go requirements must not raise ours (engineering.md §1).
+golangci_version := "v2.14.0"
+gotestsum := "gotest.tools/gotestsum@v1.13.0"
+govulncheck := "golang.org/x/vuln/cmd/govulncheck@v1.8.0"
+actionlint := "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12"
+
+# list recipes
+default:
+    @just --list
+
+# install golangci-lint at the pinned version
+tools:
+    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{golangci_version}}
+
+# format code
+fmt:
+    golangci-lint fmt
+
+# run every test with the race detector, in random order
+test *args:
+    go test -race -shuffle=on -count=1 {{args}} ./...
+
+# re-run one package's tests on every save, e.g. `just tdd config`
+tdd pkg:
+    go run {{gotestsum}} --watch --format testname -- ./internal/{{pkg}}/...
+
+# rewrite golden files after an intended change (review the diff!)
+update-golden:
+    go test ./... -update
+
+# static checks
+lint:
+    go mod tidy -diff
+    go vet ./...
+    golangci-lint run
+    cd .. && go run {{actionlint}} .github/workflows/mock_machina.yml
+
+# vulnerability scan
+vuln:
+    go run {{govulncheck}} ./...
+
+# coverage per package
+cover:
+    go test -coverprofile=cover.out ./...
+    go tool cover -func=cover.out
+
+# build the binary into ./bin
+build:
+    go build -o bin/ ./cmd/mockmachina
+
+# everything CI runs
+ci: lint test vuln build
+    ./bin/mockmachina --help
