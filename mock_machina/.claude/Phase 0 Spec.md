@@ -1378,6 +1378,8 @@ func MapFS(t testing.TB, files map[string]string) fstest.MapFS
 func Golden(t testing.TB, got []byte, name string)
 ```
 
+*As built in task 4:* `Path`, `MapFS` and `Golden`, plus `CompareGolden(tb, got, path)` and `WriteGolden(tb, got, path)`. Those two replace a single function with an `update bool` parameter, which engineering.md §15 forbids. `Project` waits until the loader needs it (task 7). `Path` finds the module root by walking up from the working directory to `go.mod`, with a narrow forbidigo exclusion for `os.Getwd` in `testkit/path.go`. gosec's G301/G306 are excluded globally: 0o755 folders and 0o644 files are intended for files shared in git. Tests use a `fakeTB` that records failures and ends the goroutine on `Fatalf`, as `testing.T` does.
+
 `-update` is registered in `testkit` with `flag.Bool` at package level. That's allowed: it's test-only code, and it's the standard pattern.
 
 | Test | Asserts |
