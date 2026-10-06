@@ -2,7 +2,7 @@ name: mock_machina
 
 on:
   push:
-    branches: [main]
+    branches: [main, "mockmachina/**"]
     paths: ["mock_machina/**", ".github/workflows/mock_machina.yml"]
   pull_request:
     paths: ["mock_machina/**", ".github/workflows/mock_machina.yml"]
