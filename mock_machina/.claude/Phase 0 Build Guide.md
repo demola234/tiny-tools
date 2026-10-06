@@ -378,7 +378,7 @@ Then write the doc, one complete route per protocol (HTTP, WS, SSE, gRPC, CRUD, 
 
 - [x] 0 Scaffold builds (first test green) — fe81932
 - [x] 1 ADRs 001–007 (drafted, awaiting your edit)
-- [ ] 2 Plumbing and CI (seen red once)
+- [x] 2 Plumbing and CI (seen red once): red run 37540449933, green run 37540828716
 - [ ] 3 `--version`
 - [ ] 4 Model
 - [ ] 5 Errors and suggestions
