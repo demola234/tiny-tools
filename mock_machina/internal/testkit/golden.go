@@ -11,12 +11,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// update is set by `go test ./... -update` (just update-golden) to rewrite
-// golden files instead of comparing against them.
 var update = flag.Bool("update", false, "rewrite golden files in testdata/golden")
 
-// Golden compares got with testdata/golden/<name>, or rewrites that file when
-// the tests run with -update. name uses slashes.
 func Golden(tb testing.TB, got []byte, name string) {
 	tb.Helper()
 
@@ -28,8 +24,6 @@ func Golden(tb testing.TB, got []byte, name string) {
 	CompareGolden(tb, got, path)
 }
 
-// CompareGolden fails the test with a (-want +got) diff when got differs from
-// the file at path. A missing file stops the test with a hint.
 func CompareGolden(tb testing.TB, got []byte, path string) {
 	tb.Helper()
 
@@ -47,7 +41,6 @@ func CompareGolden(tb testing.TB, got []byte, path string) {
 	}
 }
 
-// WriteGolden writes got to path, creating folders as needed.
 func WriteGolden(tb testing.TB, got []byte, path string) {
 	tb.Helper()
 

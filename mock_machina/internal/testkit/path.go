@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// Path returns the absolute path of elem under the module-root testdata folder.
-// It does not check that the path exists.
 func Path(tb testing.TB, elem ...string) string {
 	tb.Helper()
 
@@ -18,8 +16,6 @@ func Path(tb testing.TB, elem ...string) string {
 	return filepath.Join(append([]string{root, "testdata"}, elem...)...)
 }
 
-// moduleRoot walks up from the working directory, which go test sets to the
-// package folder, to the first folder holding go.mod.
 func moduleRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {

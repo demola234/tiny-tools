@@ -7,10 +7,6 @@ import (
 	"testing/fstest"
 )
 
-// MapFS builds an in-memory file system from slash paths to contents. Each
-// content is dedented, so tests can indent YAML inside raw strings naturally:
-// a leading newline is dropped, the indentation shared by all non-blank lines
-// is removed, and whitespace-only lines become empty.
 func MapFS(tb testing.TB, files map[string]string) fstest.MapFS {
 	tb.Helper()
 
@@ -24,7 +20,6 @@ func MapFS(tb testing.TB, files map[string]string) fstest.MapFS {
 	return fsys
 }
 
-// dedent implements MapFS's content rule in two passes over the lines. O(n).
 func dedent(s string) string {
 	s = strings.TrimPrefix(s, "\n")
 	lines := strings.Split(s, "\n")

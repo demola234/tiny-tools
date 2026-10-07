@@ -33,7 +33,7 @@ mock_machina/
 
 - **No `pkg/`, `util`, `common`, `helpers`, `types` or `misc` packages.** A package is named for what it provides (`config`, `seed`), and you should be able to describe it in one sentence without "and".
 - **One package, one job.** Packages are split by responsibility, not by kind of thing. There's no `errors` package or `interfaces` package.
-- **Every package has a `doc.go`** whose package comment says what the package does and what it never does (for example, "model has no file access").
+- **A package's purpose is stated in the spec and its package map,** not in a `doc.go` (§11).
 - **Package-local fixtures** go in that package's `testdata/`. Fixtures used by several packages go in the module-root `testdata/`, reached through `testkit.Path`.
 
 ## 3. Naming
@@ -115,12 +115,12 @@ ADR 007 sets the rules (test-first, red before green). These are the conventions
 - **CLI behaviour** is tested with testscript scripts in `testdata/script/`.
 - **Coverage** is printed per package in CI. It's a review signal, not a gate.
 
-## 11. Comments and documentation
+## 11. Comments
 
-- **Every exported identifier has a doc comment** that starts with its name and is a full sentence. `revive` checks this.
-- **Comments explain why,** not what the next line does.
-- **`TODO`s carry an issue reference,** such as `// TODO(#12): ...`. Commented-out code is deleted, not kept.
-- **A `//nolint` comment names the linter and gives a reason,** for example `//nolint:gosec // path is validated by fs.ValidPath above`. `nolintlint` enforces both.
+- **No comments in code.** Names, small functions and tests carry the meaning. If code needs a comment to be understood, rename or restructure it instead.
+- **No doc comments either,** including on exported identifiers and packages, so there are no `doc.go` files. The `revive` rules `exported` and `package-comments` are off.
+- **The only exception is a comment a tool requires:** a `//nolint` directive (which names the linter and gives a reason, as `nolintlint` enforces), a build constraint, or a `//go:` directive.
+- **Explanations live outside the code:** in tests, ADRs, the spec, and commit messages.
 
 ## 12. Formatting and linting
 

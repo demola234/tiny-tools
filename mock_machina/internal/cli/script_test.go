@@ -11,8 +11,6 @@ import (
 	"github.com/demola234/tiny-tools/mock_machina/internal/cli"
 )
 
-// TestMain lets testscript run this test binary as the mockmachina command,
-// so scripts exercise the real command tree through cli.Run.
 func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){
 		"mockmachina": func() {

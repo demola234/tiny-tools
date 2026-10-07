@@ -1,4 +1,3 @@
-// Command mockmachina serves mock APIs from the contract files in .mockmachina/.
 package main
 
 import (
@@ -18,6 +17,6 @@ func main() {
 		Stderr: os.Stderr,
 		Info:   buildinfo.Read(),
 	})
-	stop() // os.Exit skips deferred calls, so release the signal handler first
+	stop()
 	os.Exit(code)
 }

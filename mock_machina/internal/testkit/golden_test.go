@@ -34,7 +34,7 @@ func TestCompareGolden_MismatchShowsDiff(t *testing.T) {
 	if !f.failed {
 		t.Fatal("CompareGolden reported no failure for different content")
 	}
-	// go-cmp's layout is deliberately unstable, so check content, not format.
+
 	for _, want := range []string{"(-want +got)", "hello", "bye", path} {
 		if !strings.Contains(f.output(), want) {
 			t.Errorf("failure message = %q, want it to contain %q", f.output(), want)
@@ -42,9 +42,6 @@ func TestCompareGolden_MismatchShowsDiff(t *testing.T) {
 	}
 }
 
-// TestCompareGolden_LongFileShowsOnlyTheChange guards a property of go-cmp we
-// rely on: long multi-line strings are diffed line by line, so a one-line
-// change in a big golden file produces a short message.
 func TestCompareGolden_LongFileShowsOnlyTheChange(t *testing.T) {
 	t.Parallel()
 

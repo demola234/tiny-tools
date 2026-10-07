@@ -63,7 +63,6 @@ func TestNewRootCmd_UsageErrors(t *testing.T) {
 	}
 }
 
-// execute runs a fresh root command with args and returns its combined output.
 func execute(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 

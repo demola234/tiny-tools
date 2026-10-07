@@ -1,4 +1,3 @@
-# --help and no arguments both print help and exit 0.
 exec mockmachina --help
 stdout 'mockmachina'
 ! stderr .

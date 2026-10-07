@@ -1427,7 +1427,7 @@ The draft is §4 of this spec, plus:
 
 ## 16. Build order
 
-Each task is one branch and one pull request (engineering.md §13). "Done" always means: every listed test was red before its code, everything is green on all six CI jobs, lint is clean, every exported identifier is documented, and I've reviewed it.
+Each task is one branch and one pull request (engineering.md §13). "Done" always means: every listed test was red before its code, everything is green on all CI jobs, lint is clean, there are no comments in the code (engineering.md §11), and it has been reviewed.
 
 | # | Task | Needs | Size | Spec |
 | --- | --- | --- | --- | --- |
@@ -1456,7 +1456,7 @@ Tasks 3, 4 and 12 can run in parallel after 2. Tasks 5 and 6 can run in parallel
 1. **Test-first evidence:** the commit sequence or description shows each test failing first. New behaviour without a test is sent back.
 2. **Test quality:** names describe behaviour; tables have named cases; `t.Parallel` where allowed; `t.Helper` in helpers; no sleeps, fixed ports or temp files outside `t.TempDir`.
 3. **Errors:** wrapped with `%w` and context; no log-and-return; user problems as `Problem` with code, line and hint.
-4. **API:** names follow engineering.md §3; no exported identifier without a doc comment; no new package-level state.
+4. **API:** names follow engineering.md §3 and make comments unnecessary; no comments in code (§11); no new package-level state.
 5. **Boundaries:** imports match §2; YAML only in `config`; Fang only in `run.go`.
 6. **Cross-platform:** slash paths in output; no OS-specific assumptions without a skip and a reason.
 7. **Spec drift:** if the code had to differ from this spec, the spec is updated in the same pull request.

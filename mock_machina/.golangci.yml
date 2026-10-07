@@ -85,8 +85,6 @@ linters:
       require-specific: true
     revive:
       rules:
-        - name: exported
-        - name: package-comments
         - name: var-naming
         - name: receiver-naming
         - name: error-strings
