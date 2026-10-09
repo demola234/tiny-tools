@@ -11,3 +11,10 @@ updates:
     groups:
       go-deps:
         patterns: ["*"]
+    ignore:
+      - dependency-name: charm.land/bubbletea/v2
+        versions: [">= 2.0.10"]
+      - dependency-name: golang.org/x/text
+        versions: [">= 0.42.0"]
+      - dependency-name: golang.org/x/sync
+        versions: [">= 0.23.0"]

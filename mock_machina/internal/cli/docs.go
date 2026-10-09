@@ -71,7 +71,7 @@ func (o *docsOptions) run(cmd *cobra.Command) error {
 		if _, err := docs.Write(o.out, title, data); err != nil {
 			return err
 		}
-		_, _ = fmt.Fprintf(out, "wrote %s and the spec, for any static web host\n", filepath.Join(o.out, "index.html"))
+		_, _ = fmt.Fprintf(out, "wrote %s and the spec, for any static web host\n", filepath.ToSlash(filepath.Join(o.out, "index.html")))
 		return nil
 	}
 	ln, err := new(net.ListenConfig).Listen(cmd.Context(), "tcp", net.JoinHostPort(o.host, strconv.Itoa(o.port)))

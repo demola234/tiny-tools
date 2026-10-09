@@ -51,7 +51,6 @@ delete:
   rules:
     - when: { var.signed_in: { exists: false } }
       state: not_signed_in
-  active: not_signed_in
   states:
     signed_out:
       status: 204

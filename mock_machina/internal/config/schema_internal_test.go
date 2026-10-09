@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -54,13 +55,35 @@ func compile(t *testing.T, name string) *jsonschema.Schema {
 	return sch
 }
 
+func stringKeys(v any) any {
+	switch v := v.(type) {
+	case map[any]any:
+		out := make(map[string]any, len(v))
+		for k, val := range v {
+			out[fmt.Sprint(k)] = stringKeys(val)
+		}
+		return out
+	case map[string]any:
+		for k, val := range v {
+			v[k] = stringKeys(val)
+		}
+		return v
+	case []any:
+		for i, val := range v {
+			v[i] = stringKeys(val)
+		}
+		return v
+	}
+	return v
+}
+
 func yamlInstance(t *testing.T, src string) any {
 	t.Helper()
 	var v any
 	if err := yaml.Unmarshal([]byte(src), &v); err != nil {
 		t.Fatal(err)
 	}
-	data, err := json.Marshal(v)
+	data, err := json.Marshal(stringKeys(v))
 	if err != nil {
 		t.Fatal(err)
 	}
