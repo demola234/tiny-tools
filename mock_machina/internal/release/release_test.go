@@ -145,6 +145,27 @@ func TestNotes(t *testing.T) {
 	}
 }
 
+func TestLatest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, changelog, want string
+	}{
+		{"newest version under Unreleased", "# Changelog\n\n## [Unreleased]\n\n- next\n\n## [0.2.0] - 2026-10-09\n\n- b\n\n## [0.1.0]\n\n- a\n", "v0.2.0"},
+		{"only Unreleased", "# Changelog\n\n## [Unreleased]\n\n- next\n", ""},
+		{"not a version", "## [next]\n\n## [1.0]\n", ""},
+		{"pre-release", "## [1.0.0-rc.1]\n", "v1.0.0-rc.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := release.Latest([]byte(tt.changelog)); got != tt.want {
+				t.Errorf("Latest = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTargets(t *testing.T) {
 	t.Parallel()
 

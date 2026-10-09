@@ -2,6 +2,8 @@ name: mock_machina release
 
 on:
   push:
+    branches: [main]
+    paths: [mock_machina/CHANGELOG.md]
     tags: ["mock_machina/v*"]
 
 permissions:
@@ -16,7 +18,42 @@ defaults:
     working-directory: mock_machina
 
 jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: github.ref_type == 'branch'
+        with:
+          go-version-file: mock_machina/go.mod
+          cache-dependency-path: mock_machina/go.sum
+      - id: tag
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          version="$(go run ./tools/release latest)"
+          if [ -z "$version" ]; then
+            echo "CHANGELOG.md has no released version yet; nothing to tag"
+            exit 0
+          fi
+          tag="mock_machina/$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "$tag already exists; nothing to tag"
+            exit 0
+          fi
+          git tag "$tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$tag"
+          echo "tagged $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   release:
+    needs: tag
+    if: needs.tag.outputs.tag != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -26,20 +63,25 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: mock_machina/go.mod
           cache-dependency-path: mock_machina/go.sum
       - id: version
-        run: echo "version=${GITHUB_REF_NAME#mock_machina/}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: echo "version=${TAG#mock_machina/}" >> "$GITHUB_OUTPUT"
       - run: go test ./...
       - run: go run ./tools/release build --version "${{ steps.version.outputs.version }}" --out dist
       - run: go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.12.0 app -json -main cmd/mockmachina -output dist/sbom.cdx.json .
       - name: Publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.tag.outputs.tag }}
         run: >
-          gh release create "$GITHUB_REF_NAME"
+          gh release create "$TAG"
           dist/*.tar.gz dist/*.zip dist/checksums.txt dist/sbom.cdx.json install.sh
           --title "MockMachina ${{ steps.version.outputs.version }}"
           --notes-file dist/notes.md
@@ -65,11 +107,13 @@ jobs:
           git push
 
   image:
-    needs: release
+    needs: [tag, release]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0

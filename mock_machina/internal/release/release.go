@@ -241,6 +241,17 @@ func Scoop(version, repo string, arts []Artifact) []byte {
 
 var heading = regexp.MustCompile(`(?m)^## \[([^\]]+)\].*$`)
 
+var semver = regexp.MustCompile(`^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$`)
+
+func Latest(changelog []byte) string {
+	for _, m := range heading.FindAllSubmatch(changelog, -1) {
+		if v := string(m[1]); semver.MatchString(v) {
+			return "v" + v
+		}
+	}
+	return ""
+}
+
 func Notes(changelog []byte, version string) (string, error) {
 	text := string(changelog)
 	sections := map[string]string{}
