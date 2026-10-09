@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -79,20 +80,47 @@ func TestFault_Truncated(t *testing.T) {
 	}
 }
 
+type holdClock struct{ holding chan struct{} }
+
+func (holdClock) Now() time.Time { return time.Now() }
+
+func (c holdClock) Sleep(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return ctx.Err()
+	}
+	close(c.holding)
+	<-ctx.Done()
+	return ctx.Err()
+}
+
 func TestFault_Timeout(t *testing.T) {
 	t.Parallel()
 
-	srv, got := faultServer(t, model.Fault{Type: model.FaultTimeout, Rate: 1})
-	client := srv.Client()
-	client.Timeout = 100 * time.Millisecond
-	res, err := postTo(t, client, srv.URL+"/pay")
+	clk := holdClock{holding: make(chan struct{})}
+	got := make(chan server.Request, 1)
+	h, err := server.New(faultProject(model.Fault{Type: model.FaultTimeout, Rate: 1}), server.Options{Clock: clk, Report: func(r server.Request) { got <- r }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+
+	ctx, giveUp := context.WithCancel(t.Context())
+	go func() {
+		<-clk.holding
+		giveUp()
+	}()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL+"/pay", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := srv.Client().Do(req)
 	if err == nil {
 		_ = res.Body.Close()
 		t.Fatal("the request got an answer; want none")
 	}
-	var netErr interface{ Timeout() bool }
-	if !errors.As(err, &netErr) || !netErr.Timeout() {
-		t.Errorf("error = %v; want the client's timeout", err)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("error = %v; want the client to have given up", err)
 	}
 	if r := <-got; r.Fault != model.FaultTimeout {
 		t.Errorf("reported %+v", r)
