@@ -1,0 +1,7 @@
+exec mockmachina --help
+stdout 'mockmachina'
+! stderr .
+
+exec mockmachina
+stdout 'mockmachina'
+! stderr .

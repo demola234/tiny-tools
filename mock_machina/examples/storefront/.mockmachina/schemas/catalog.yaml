@@ -1,0 +1,18 @@
+Product:
+  type: object
+  required: [id, name, price, currency, inStock]
+  properties:
+    id: { type: string, pattern: "^p_" }
+    name: { type: string, minLength: 1 }
+    price: { type: number, minimum: 0 }
+    currency: { type: string, enum: [NGN] }
+    category: { type: string, enum: [drinks, snacks, pantry] }
+    inStock: { type: boolean }
+    image: { type: string, format: uri }
+ProductList:
+  type: object
+  required: [products, page]
+  properties:
+    products: { type: array, items: { $ref: Product } }
+    page: { type: integer, minimum: 1 }
+    nextPage: { type: [integer, "null"] }

@@ -1,0 +1,76 @@
+set windows-shell := ["pwsh", "-NoProfile", "-Command"]
+
+# Pinned tool versions. Tools run with `go run pkg@version` so they never
+# enter go.mod: their own Go requirements must not raise ours (engineering.md §1).
+golangci_version := "v2.14.0"
+gotestsum := "gotest.tools/gotestsum@v1.13.0"
+govulncheck := "golang.org/x/vuln/cmd/govulncheck@v1.8.0"
+actionlint := "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12"
+
+# list recipes
+default:
+    @just --list
+
+# install golangci-lint at the pinned version
+tools:
+    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{golangci_version}}
+
+# format code
+fmt:
+    golangci-lint fmt
+
+# run every test with the race detector, in random order
+test *args:
+    go test -race -shuffle=on -count=1 {{args}} ./...
+
+# re-run one package's tests on every save, e.g. `just tdd config`
+tdd pkg:
+    go run {{gotestsum}} --watch --format testname -- ./internal/{{pkg}}/...
+
+# rewrite golden files after an intended change (review the diff!)
+update-golden:
+    go test ./... -update
+
+# Oldest Go we support (engineering.md §1). Raising it is a deliberate change.
+go_floor := "1.25.0"
+
+# static checks
+lint:
+    grep -qx 'go {{go_floor}}' go.mod || (echo "go.mod must say go {{go_floor}}; a dependency raised it" && exit 1)
+    go mod tidy -diff
+    go vet ./...
+    golangci-lint run
+    cd .. && go run {{actionlint}} .github/workflows/mock_machina.yml
+
+# vulnerability scan
+vuln:
+    go run {{govulncheck}} ./...
+
+# coverage per package
+cover:
+    go test -coverprofile=cover.out ./...
+    go tool cover -func=cover.out
+
+# build the binary into ./bin
+build:
+    go build -o bin/ ./cmd/mockmachina
+
+# check the built binary reports its version (Phase 0 exit criterion 1)
+smoke: build
+    ./bin/mockmachina --version | grep -E '^mockmachina version (v[0-9]|\(devel\))'
+
+# run the Flutter example's widget tests against the real binary
+example: build
+    cd examples/flutter_shop && flutter test
+
+# everything CI runs
+ci: lint test vuln smoke
+
+# replace the bundled Swagger UI with another release: just swagger-ui 5.33.1
+swagger-ui version:
+    for f in swagger-ui-bundle.js swagger-ui.css LICENSE NOTICE; do curl -sfL "https://unpkg.com/swagger-ui-dist@{{version}}/$f" -o "internal/docs/swaggerui/$f"; done
+    cd internal/docs/swaggerui && { echo "swagger-ui-dist {{version}} from https://unpkg.com/swagger-ui-dist@{{version}}/ (Apache-2.0, see LICENSE and NOTICE)"; shasum -a 256 swagger-ui-bundle.js swagger-ui.css; } > VERSION
+
+# build every release archive, checksums, Homebrew formula and Scoop manifest into dist/, without publishing
+release-dry version="v0.0.0-dry":
+    rm -rf dist && go run ./tools/release build --version {{version}} --out dist

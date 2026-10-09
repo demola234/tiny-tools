@@ -1,0 +1,56 @@
+[windows] skip
+[!exec:bash] skip
+[!exec:git] skip
+env GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
+env GITHUB_REPOSITORY=acme/shop PR_NUMBER=7 BASE_REF=main DIR=.mockmachina OVERRIDE_LABEL=breaking-change LABELS= GH_TOKEN=x COMMENT=true
+env PATH=$WORK/bin${:}$PATH
+chmod 755 bin/gh
+exec git init -q -b main
+exec git add .mockmachina
+exec git commit -q -m base
+exec git update-ref refs/remotes/origin/main HEAD
+exec git checkout -q -b feature
+cp head.yaml .mockmachina/routes/users.yaml
+exec git commit -q -am head
+
+! exec bash $ACTION_SH
+stdout '^::error file=.mockmachina/routes/users.yaml,line=1,title=Breaking contract change::users.list: state "empty" removed$'
+stderr 'breaking contract changes; add the breaking-change label to the pull request if they.re intended'
+grep '^api -X POST repos/acme/shop/issues/7/comments -f body=<!-- mockmachina-diff -->$' gh.log
+grep '^\| \*\*breaking\*\* \| `users.list` \| state "empty" removed \|' gh.log
+
+rm gh.log
+env LABELS=docs,breaking-change
+env GH_EXISTING=123
+exec bash $ACTION_SH
+stderr 'breaking contract changes allowed by the breaking-change label'
+grep '^api -X PATCH repos/acme/shop/issues/comments/123 -f body=<!-- mockmachina-diff -->$' gh.log
+! grep 'X POST' gh.log
+
+rm gh.log
+env GH_EXISTING=
+cp .mockmachina/routes/users.yaml head.yaml
+exec git checkout -q main -- .mockmachina
+exec git commit -q -m revert
+exec bash $ACTION_SH
+! stderr 'breaking'
+! grep 'X POST' gh.log
+
+-- bin/gh --
+#!/bin/sh
+printf '%s\n' "$*" >> "$WORK/gh.log"
+case "$*" in
+  "api -X GET"*) [ -n "$GH_EXISTING" ] && echo "$GH_EXISTING" ;;
+esac
+exit 0
+-- .mockmachina/routes/users.yaml --
+list:
+  route: GET /users
+  states:
+    success: {}
+    empty: {}
+-- head.yaml --
+list:
+  route: GET /users
+  states:
+    success: {}

@@ -1,0 +1,80 @@
+name: mock_machina
+
+on:
+  push:
+    branches: [main, "mockmachina/**"]
+    paths: ["mock_machina/**", ".github/workflows/mock_machina.yml"]
+  pull_request:
+    paths: ["mock_machina/**", ".github/workflows/mock_machina.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mock_machina-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: mock_machina
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Tools (govulncheck v1.8.0 needs Go 1.26) run on stable Go. Analysis still
+      # targets the go.mod version: vet's stdversion check and golangci's run.go.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache-dependency-path: mock_machina/go.sum
+      - name: Go floor unchanged (engineering.md §1)
+        run: grep -qx 'go 1.25.0' go.mod || { echo "go.mod must say go 1.25.0; a dependency raised it"; exit 1; }
+      - run: go mod tidy -diff
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.14.0
+          working-directory: mock_machina
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/mock_machina.yml
+        working-directory: .
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: [go.mod, stable]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: ${{ matrix.go == 'go.mod' && 'mock_machina/go.mod' || '' }}
+          go-version: ${{ matrix.go == 'stable' && 'stable' || '' }}
+          cache-dependency-path: mock_machina/go.sum
+      - run: go test -race -shuffle=on -count=1 -cover ./...
+      - run: go build -o bin/ ./cmd/mockmachina
+      # Phase 0 exit criterion 1: the built binary reports its version.
+      - run: ./bin/mockmachina --version | grep -E '^mockmachina version (v[0-9]|\(devel\))'
+        shell: bash
+
+  flutter-example:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: mock_machina/go.mod
+          cache-dependency-path: mock_machina/go.sum
+      - run: go build -o bin/ ./cmd/mockmachina
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+      - run: flutter test
+        working-directory: mock_machina/examples/flutter_shop

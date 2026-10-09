@@ -1,0 +1,51 @@
+status: agreed
+owners: { backend: [ademola], frontend: [ada] }
+
+items:
+  route: CRUD /cart/items
+  summary: The cart; list, add, update and remove items, kept in memory
+  crud: { collection: cart_items, idField: id }
+  states:
+    ok: {}
+    down:
+      status: 503
+      body: { error: cart unavailable }
+
+checkout:
+  route: POST /checkout
+  summary: Place the order; the first call drops, the second is busy, then it works
+  request:
+    body: NewOrder
+  responses:
+    201: Order
+    default: Error
+  rules:
+    - when: { call: 1 }
+      state: dropped
+    - when: { call: 2 }
+      state: busy
+  active: placed
+  states:
+    placed:
+      status: 201
+      latency: 800ms
+      set: { last_order: "o_{{ random.int 1000 9999 }}" }
+      body:
+        id: "{{ var.last_order }}"
+        status: placed
+        total: "{{ random.int 1500 25000 }}"
+        placedAt: "{{ now }}"
+    dropped:
+      fault: reset
+    busy:
+      status: 503
+      headers: { Retry-After: "1" }
+      body: { error: payments are busy; try again }
+    empty_cart:
+      status: 422
+      validateRequest: false
+      body: { error: your cart is empty }
+    cut_off:
+      status: 201
+      fault: { type: truncated, rate: 0.5 }
+      body: { id: o_1001, status: placed, total: 4500, placedAt: "2026-10-09T12:00:00Z" }

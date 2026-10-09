@@ -1,0 +1,6 @@
+{
+  "orders": [
+    { "id": "o_1001", "status": "delivered", "total": 4500, "placedAt": "2026-09-30T10:15:00Z" },
+    { "id": "o_1002", "status": "shipped", "total": 12000, "placedAt": "2026-10-07T18:42:00Z" }
+  ]
+}

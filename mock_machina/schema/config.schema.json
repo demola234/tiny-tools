@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/demola234/tiny-tools/main/mock_machina/schema/config.schema.json",
+  "title": "MockMachina project settings",
+  "description": ".mockmachina/config.yaml. Optional; every field has a default, and command-line flags win over it.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "description": "File format version, so later releases can migrate old projects.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    },
+    "host": {
+      "description": "Address to listen on. 127.0.0.1 by default; 0.0.0.0 lets phones on your network connect.",
+      "type": "string"
+    },
+    "ports": {
+      "type": "object",
+      "properties": {
+        "mock": {
+          "description": "Port the mock API is served on. Defaults to 4001.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      },
+      "additionalProperties": false
+    },
+    "seed": {
+      "description": "Seed for everything random: fake data, random states, jitter, fault rates. 0 picks one at start and logs it; --seed overrides it.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "locale": {
+      "description": "Language and region for fake data. Defaults to en.",
+      "enum": ["en", "en_NG"]
+    },
+    "proxy": {
+      "description": "The real backend. mockmachina start sends requests that match no route, and routes with serve: proxy, here. --proxy overrides it.",
+      "type": "string",
+      "pattern": "^https?://"
+    }
+  },
+  "additionalProperties": false
+}

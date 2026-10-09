@@ -1,0 +1,9 @@
+{
+  "products": [
+    { "id": "p_zobo", "name": "Zobo", "price": 1500, "currency": "NGN", "category": "drinks", "inStock": true, "image": "https://picsum.photos/seed/zobo/400" },
+    { "id": "p_plantain_chips", "name": "Plantain chips", "price": 1200, "currency": "NGN", "category": "snacks", "inStock": true, "image": "https://picsum.photos/seed/chips/400" },
+    { "id": "p_garri", "name": "Garri, 2kg", "price": 3500, "currency": "NGN", "category": "pantry", "inStock": false, "image": "https://picsum.photos/seed/garri/400" }
+  ],
+  "page": 1,
+  "nextPage": 2
+}

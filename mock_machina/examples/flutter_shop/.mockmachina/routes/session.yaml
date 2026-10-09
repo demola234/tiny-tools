@@ -1,0 +1,16 @@
+owners: { backend: [ademola], frontend: [ada] }
+
+create:
+  route: POST /session
+  summary: Sign in with email and password
+  rules:
+    - when: { body.password: { ne: secret } }
+      state: wrong_password
+  states:
+    signed_in:
+      status: 201
+      set: { signed_in: true }
+      body: { token: "{{ uuid }}" }
+    wrong_password:
+      status: 401
+      body: { error: wrong email or password }

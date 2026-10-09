@@ -1,0 +1,19 @@
+owners: { backend: [ademola], frontend: [ada] }
+
+list:
+  route: GET /users
+  summary: List users, newest first
+  states:
+    success:
+      body: users.json
+    empty:
+      body: { users: [] }
+    unauthorized:
+      status: 401
+      body: { error: session expired }
+    server_error:
+      status: 500
+      body: { error: something went wrong }
+    slow:
+      latency: 2s
+      body: users.json

@@ -1,0 +1,20 @@
+{
+  "active": "up",
+  "file": "routes/health.yaml",
+  "id": "health.get",
+  "line": 1,
+  "method": "GET",
+  "mode": "active",
+  "path": "/health",
+  "states": [
+    {
+      "body": "ok",
+      "bodyFile": "routes/health/ok.txt",
+      "contentType": "text/plain; charset=utf-8",
+      "line": 5,
+      "name": "up",
+      "status": 200
+    }
+  ],
+  "status": "agreed"
+}

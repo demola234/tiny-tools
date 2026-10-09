@@ -1,0 +1,26 @@
+exec mockmachina init
+stdout '^created .mockmachina/config.yaml$'
+stdout '^created .mockmachina/routes/health.yaml$'
+stdout '^next: mockmachina start, then open http://127.0.0.1:4001/health$'
+exists .mockmachina/config.yaml
+exists .mockmachina/routes/health.yaml
+
+exec mockmachina state list
+stdout '^health.get +GET +/health +up$'
+
+! exec mockmachina init
+! stdout .
+stderr 'already exists: .mockmachina \(pass --force to rewrite its config.yaml and example route\)'
+
+exec mockmachina init --force --port 5000
+grep 'mock: 5000' .mockmachina/config.yaml
+stdout 'open http://127.0.0.1:5000/health'
+
+cd $WORK/bare
+exec mockmachina init --no-example
+stdout '^created .mockmachina/config.yaml$'
+stdout '^next: add a route with mockmachina add GET /users, then mockmachina start$'
+! exists .mockmachina/routes/health.yaml
+
+-- bare/readme.txt --
+an app without a project yet

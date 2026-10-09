@@ -1,0 +1,34 @@
+{
+  "active": "found",
+  "file": "routes/orders.yaml",
+  "generated": true,
+  "id": "orders.get",
+  "line": 2,
+  "method": "GET",
+  "mode": "active",
+  "path": "/orders/{id}",
+  "states": [
+    {
+      "body": {
+        "id": "o_1",
+        "items": [],
+        "total": 12.5
+      },
+      "contentType": "application/json",
+      "line": 8,
+      "name": "found",
+      "status": 200
+    },
+    {
+      "body": {
+        "error": "no such order"
+      },
+      "contentType": "application/json",
+      "line": 10,
+      "name": "not_found",
+      "status": 404
+    }
+  ],
+  "status": "draft",
+  "summary": "One order"
+}

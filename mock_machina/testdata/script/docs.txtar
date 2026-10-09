@@ -1,0 +1,20 @@
+cd shop
+exec mockmachina docs -o site
+stdout '^wrote site/index.html and the spec, for any static web host$'
+exists site/index.html
+exists site/openapi.yaml
+exists site/swagger-ui-bundle.js
+exists site/LICENSE
+grep '<title>shop</title>' site/index.html
+grep 'operationId: users.list' site/openapi.yaml
+
+! exec mockmachina docs
+stderr '(?i)pass --serve, or -o FOLDER'
+! exec mockmachina docs --serve -o site
+stderr '(?i)pass --serve, or -o FOLDER'
+
+-- shop/.mockmachina/routes/users.yaml --
+list:
+  route: GET /users
+  states:
+    success: { body: { users: [] } }

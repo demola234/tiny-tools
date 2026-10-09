@@ -1,0 +1,10 @@
+list:
+  route: GET /users
+  states:
+    success:
+      body: success.json
+    empty:
+      body: { users: [] }
+    unauthorized:
+      status: 401
+      body: { error: session expired }

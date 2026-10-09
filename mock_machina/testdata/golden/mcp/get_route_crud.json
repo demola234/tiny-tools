@@ -1,0 +1,22 @@
+{
+  "active": "ok",
+  "crud": {
+    "collection": "cart_items",
+    "idField": "id",
+    "items": 0
+  },
+  "file": "routes/pay.yaml",
+  "id": "pay.items",
+  "line": 12,
+  "method": "CRUD",
+  "mode": "active",
+  "path": "/cart/items",
+  "states": [
+    {
+      "line": 16,
+      "name": "ok",
+      "status": 200
+    }
+  ],
+  "status": "draft"
+}

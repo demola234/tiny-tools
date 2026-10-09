@@ -1,0 +1,22 @@
+ ● MockMachina v0.7.0  pick a command, or run mockmachina <command> --help      
+╭─ Commands 2 ─────────────────────────────────────────────────────────────────╮
+│ › state                                                                      │
+│                                                                              │
+│ ▸ state list   Show routes and their states                           ▄      │
+│   state set    Switch the state a route serves …                    ▄███▄    │
+│                                                                    █ ███ █   │
+│                                                                    ███████   │
+│                                                                    ▀▀   ▀▀   │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ $ mockmachina state list                                                       
+ type to filter · ↑↓ move · ⏎ choose · esc quit                                 

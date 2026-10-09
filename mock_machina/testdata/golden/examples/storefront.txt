@@ -1,0 +1,85 @@
+GET /health
+  → 503 starting {"ok":false,"reason":"starting"}
+GET /health
+  → 200 up {"ok":true}
+GET /me
+  → 401 signed_out {"error":"sign in first"}
+POST /session  {"email":"ada@example.com","password":"nope"}
+  → 401 wrong_password {"error":"wrong email or password"}
+POST /session  {"email":"ada@","password":"secret"}
+  → 400  {"error":"invalid_request","route":"session.create","problems":[{"at":"body.email","message":"\"ada@\" isn't a valid email"}]}
+POST /session  {"email":"ada@example.com","password":"secret"}
+  → 201 signed_in {"token":"773c853c-7579-4b21-a825-b7c1b085ce49"}
+GET /me
+  → 200 ok {"email":"ada@example.com","name":"Yusuf Balogun","phone":"+234 809 843 8276","city":"Jos"}
+GET /products
+  → 200 success {
+  "products": [
+    { "id": "p_zobo", "name": "Zobo", "price": 1500, "currency": "NGN", "category": "drinks", "inStock": true, "image": "https://picsum.photos/seed/zobo/400" },
+    { "id": "p_plantain_chips", "name": "Plantain chips", "price": 1200, "currency": "NGN", "category": "snacks", "inStock": true, "image": "https://picsum.photos/seed/chips/400" },
+    { "id": "p_garri", "name": "Garri, 2kg", "price": 3500, "currency": "NGN", "category": "pantry", "inStock": false, "image": "https://picsum.photos/seed/garri/400" }
+  ],
+  "page": 1,
+  "nextPage": 2
+}
+GET /products?page=3
+  → 200 past_last_page {"products":[],"page":3,"nextPage":null}
+GET /products?page=two
+  → 400  {"error":"invalid_request","route":"products.list","problems":[{"at":"query.page","message":"should be an integer, but is a string"}]}
+GET /products/p_404
+  → 404 not_found {"error":"product not found"}
+GET /products/p_zobo
+  → 200 found {"id":"p_zobo","name":"kettle","price":325.65,"currency":"NGN","category":"snacks","inStock":true,"image":"https://picsum.photos/seed/89e97ea7/640/480"}
+GET /products/p_zobo?__state=out_of_stock
+  → 200 out_of_stock {"id":"p_zobo","name":"Zobo","price":1500,"currency":"NGN","category":"drinks","inStock":false}
+GET /deals/today
+  → 404 no_deal {"error":"no deal today"}
+GET /deals/today
+  → 404 no_deal {"error":"no deal today"}
+GET /cart/items
+  → 200 ok [{"id":"c_1","sku":"p_zobo","qty":2},{"id":"c_2","sku":"p_plantain_chips","qty":1}]
+POST /cart/items  {"sku":"p_garri","qty":1}
+  → 201 ok
+PATCH /cart/items/c_1  {"qty":3}
+  → 200 ok {"id":"c_1","sku":"p_zobo","qty":3}
+DELETE /cart/items/c_2
+  → 204 ok
+GET /cart/items?__state=down
+  → 503 down {"error":"cart unavailable"}
+POST /checkout  {"items":[{"sku":"p_zobo","qty":3}]}
+  → connection dropped
+POST /checkout  {"items":[{"sku":"p_zobo","qty":3}]}
+  → 503 busy {"error":"payments are busy; try again"}
+POST /checkout  {"items":[{"sku":"p_zobo","qty":3}]}
+  → 201 placed
+POST /checkout  {"items":[]}
+  → 400  {"error":"invalid_request","route":"cart.checkout","problems":[{"at":"body.items","message":"has 0 items; the schema wants at least 1"}]}
+POST /checkout X-Mock-State: empty_cart
+  → 422 empty_cart {"error":"your cart is empty"}
+GET /orders
+  → 401 unauthorized {"error":"sign in first"}
+GET /orders Authorization: Bearer t_1
+  → 200 success {
+  "orders": [
+    { "id": "o_1001", "status": "delivered", "total": 4500, "placedAt": "2026-09-30T10:15:00Z" },
+    { "id": "o_1002", "status": "shipped", "total": 12000, "placedAt": "2026-10-07T18:42:00Z" }
+  ]
+}
+GET /orders/o_1001 Authorization: Bearer t_1
+  → 200 found {"id":"o_1001","status":"placed","total":4500,"placedAt":"2026-01-01T00:00:00Z"}
+GET /orders/o_404 Authorization: Bearer t_1
+  → 404 not_found {"error":"order not found"}
+GET /orders/o_1001/tracking Authorization: Bearer t_1
+  → 200 packed
+GET /orders/o_1001/tracking Authorization: Bearer t_1
+  → 200 in_transit
+GET /orders/o_1001/tracking Authorization: Bearer t_1
+  → 200 out_for_delivery
+GET /orders/o_1001/tracking Authorization: Bearer t_1
+  → 200 delivered
+DELETE /session
+  → 204 signed_out
+DELETE /session
+  → 401 not_signed_in {"error":"you're not signed in"}
+GET /me
+  → 401 signed_out {"error":"sign in first"}

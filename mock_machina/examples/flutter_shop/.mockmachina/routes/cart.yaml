@@ -1,0 +1,23 @@
+owners: { backend: [ademola], frontend: [ada] }
+
+items:
+  route: CRUD /cart/items
+  summary: The cart, with list, add, update and remove
+  states:
+    ok: {}
+    down:
+      status: 503
+      body: { error: cart unavailable }
+
+checkout:
+  route: POST /checkout
+  summary: Place the order
+  states:
+    flaky:
+      fault: reset
+    placed:
+      status: 201
+      body: { order: "{{ uuid }}" }
+    empty_cart:
+      status: 422
+      body: { error: your cart is empty }

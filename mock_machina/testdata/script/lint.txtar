@@ -1,0 +1,16 @@
+! exec mockmachina lint
+stdout '^routes/users.yaml:4: active state "empt" doesn.t exist \(did you mean "empty"\?\)$'
+stdout '^routes/users.yaml:1: warning: users.list has no owners; reviews can.t be routed$'
+stdout '^2 problems in 1 file$'
+! stderr .
+
+-- .mockmachina/routes/users.yaml --
+list:
+  route: GET /users
+  summary: List users
+  active: empt
+  states:
+    success: {}
+    empty: {}
+    unauthorized:
+      status: 401

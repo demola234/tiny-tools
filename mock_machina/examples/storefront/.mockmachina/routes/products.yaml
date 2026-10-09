@@ -1,0 +1,68 @@
+status: implemented
+owners: { backend: [ademola], frontend: [ada] }
+
+list:
+  route: GET /products
+  summary: The catalog, a page at a time
+  request:
+    query: { page: { type: integer, minimum: 1 } }
+  responses:
+    200: ProductList
+    default: Error
+  rules:
+    - when: { query.page: { gt: 2 } }
+      state: past_last_page
+  states:
+    success:
+      body: products.json
+    past_last_page:
+      body: { products: [], page: 3, nextPage: null }
+    slow:
+      latency: { base: 2s, jitter: 500ms }
+      body: products.json
+    server_error:
+      status: 500
+      body: { error: something went wrong }
+
+get:
+  route: GET /products/{id}
+  summary: One product; p_404 doesn't exist
+  examples: { id: p_zobo }
+  responses:
+    200: Product
+    default: Error
+  rules:
+    - when: { path.id: p_404 }
+      state: not_found
+  states:
+    found:
+      headers: { Cache-Control: max-age=60 }
+      body:
+        id: "{{ path.id }}"
+        name: "{{ fake.word }}"
+        price: "{{ fake.price }}"
+        currency: NGN
+        category: snacks
+        inStock: true
+        image: "{{ fake.image.url }}"
+    not_found:
+      status: 404
+      body: { error: product not found }
+    out_of_stock:
+      body: { id: p_zobo, name: Zobo, price: 1500, currency: NGN, category: drinks, inStock: false }
+
+deal:
+  route: GET /deals/today
+  summary: Today's deal; a random pick each call, the same picks for the same seed
+  mode: random
+  responses:
+    200: Product
+    default: Error
+  states:
+    zobo:
+      body: { id: p_zobo, name: Zobo, price: 1000, currency: NGN, category: drinks, inStock: true }
+    chips:
+      body: { id: p_plantain_chips, name: Plantain chips, price: 900, currency: NGN, category: snacks, inStock: true }
+    no_deal:
+      status: 404
+      body: { error: no deal today }

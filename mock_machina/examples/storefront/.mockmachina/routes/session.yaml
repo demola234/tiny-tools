@@ -1,0 +1,61 @@
+status: agreed
+owners: { backend: [ademola], frontend: [ada] }
+
+create:
+  route: POST /session
+  summary: Sign in; the password is "secret"
+  request:
+    body: Credentials
+  responses:
+    201: Session
+    default: Error
+  rules:
+    - when: { body.password: { ne: secret } }
+      state: wrong_password
+  states:
+    signed_in:
+      status: 201
+      set: { signed_in: true, email: "{{ body.email }}" }
+      body: { token: "{{ uuid }}" }
+    wrong_password:
+      status: 401
+      body: { error: wrong email or password }
+    locked:
+      status: 423
+      validateRequest: false
+      body: { error: too many attempts; try again in 15 minutes }
+
+me:
+  route: GET /me
+  summary: The signed-in user, filled with Nigerian fake data
+  responses:
+    200: Me
+    default: Error
+  rules:
+    - when: { var.signed_in: { exists: false } }
+      state: signed_out
+  states:
+    ok:
+      body:
+        email: "{{ var.email }}"
+        name: "{{ fake.person.name }}"
+        phone: "{{ fake.phone }}"
+        city: "{{ fake.city }}"
+    signed_out:
+      status: 401
+      body: { error: sign in first }
+
+delete:
+  route: DELETE /session
+  summary: Sign out
+  rules:
+    - when: { var.signed_in: { exists: false } }
+      state: not_signed_in
+  active: not_signed_in
+  states:
+    signed_out:
+      status: 204
+      set: { signed_in: null, email: null }
+    not_signed_in:
+      status: 401
+      body: { error: you're not signed in }

@@ -1,0 +1,38 @@
+[!exec:git] skip
+env GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
+exec git init -q -b main
+exec git add .
+exec git commit -q -m base
+cp head.yaml .mockmachina/routes/users.yaml
+
+! exec mockmachina diff main --fail-on breaking
+stdout '^breaking  users.list: state "empty" removed$'
+
+exec mockmachina diff main --format markdown
+stdout '^\| Severity \| Route \| Change \| Owners \|$'
+stdout '^\| \*\*breaking\*\* \| `users.list` \| state "empty" removed \| @ademola, @ada \|$'
+stdout '^\| safe \| `users.get` \| route added \(GET /users/\{id\}\) \| @ademola, @ada \|$'
+stdout '^Owners of the changed routes: @ademola \(backend\), @ada \(frontend\)\.$'
+
+exec mockmachina diff main --format json
+stdout '"owners":\{"backend":\["ademola"\],"frontend":\["ada"\]\}'
+
+-- .mockmachina/routes/users.yaml --
+owners: { backend: [ademola], frontend: ["@ada"] }
+
+list:
+  route: GET /users
+  states:
+    success: {}
+    empty: {}
+-- head.yaml --
+owners: { backend: [ademola], frontend: ["@ada"] }
+
+list:
+  route: GET /users
+  states:
+    success: {}
+get:
+  route: GET /users/{id}
+  states:
+    found: {}

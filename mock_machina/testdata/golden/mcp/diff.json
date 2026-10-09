@@ -1,0 +1,28 @@
+{
+  "base": "HEAD",
+  "changes": [
+    {
+      "file": "routes/health.yaml",
+      "line": 1,
+      "message": "now answers GET /healthz, was GET /health",
+      "route": "health.get",
+      "severity": "breaking"
+    },
+    {
+      "file": "routes/health.yaml",
+      "line": 1,
+      "message": "state \"up\" now returns no body, was text/plain; charset=utf-8",
+      "route": "health.get",
+      "severity": "breaking",
+      "state": "up"
+    },
+    {
+      "file": "routes/health.yaml",
+      "line": 1,
+      "message": "status now draft, was agreed",
+      "route": "health.get",
+      "severity": "info"
+    }
+  ],
+  "head": "working tree"
+}

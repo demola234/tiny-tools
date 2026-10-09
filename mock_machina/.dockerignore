@@ -1,0 +1,7 @@
+bin/
+dist/
+.git
+.claude
+examples/
+testdata/
+**/*_test.go

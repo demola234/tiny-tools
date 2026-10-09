@@ -1,0 +1,14 @@
+ ● mockmachina  shop  http://127.0.0.1:4001  seed 42                        ⚠ 2 
+╭─ Routes 3 ───────────────────╮ ╭─ Problems 2 ────────────────────────────────╮
+│ ▸ session.create  POST /ses… │ │ ⚠ routes/users.yaml:4: unknown field "stau… │
+│     ● success  200           │ │ ⚠ routes/users.yaml:9: state "empty" has n… │
+│     ○ invalid  200           │ │                                             │
+│   users.get  GET /users/{id} │ │                                             │
+│   users.list  GET /users     │ │                                             │
+│                              │ │                                             │
+│                              │ │                                             │
+│                              │ │                                             │
+│                              │ │                                             │
+╰──────────────────────────────╯ ╰─────────────────────────────────────────────╯
+ ⚠ 2 problems; still serving the last good version · l lists them               
+ ↑↓ move  ⏎ set state  / filter  tab requests  r reload  l lint  q quit         

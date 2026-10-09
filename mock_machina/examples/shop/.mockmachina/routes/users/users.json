@@ -1,0 +1,7 @@
+{
+  "users": [
+    { "id": "u_1", "name": "Ada Obi", "email": "ada@example.com" },
+    { "id": "u_2", "name": "Tunde Bello", "email": "tunde@example.com" }
+  ],
+  "nextPage": 2
+}

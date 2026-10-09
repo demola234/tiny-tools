@@ -1,0 +1,19 @@
+{
+  "routes": [
+    {
+      "active": "up",
+      "file": "routes/health.yaml",
+      "id": "health.get",
+      "line": 1,
+      "method": "GET",
+      "path": "/health",
+      "states": [
+        {
+          "name": "up",
+          "status": 200
+        }
+      ],
+      "status": "agreed"
+    }
+  ]
+}

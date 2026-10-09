@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/demola234/tiny-tools/main/mock_machina/schema/route.schema.json
+list:
+  # hand edited
+  route: GET /pets
+  owners: { backend: [ademola] }
+  summary: List pets
+  responses: {200: Pets, 500: {type: object, properties: {error: {type: string}}}}
+  request:
+    query: {limit: {type: integer, minimum: 1}}
+  states:
+    success: {body: [{id: 1, name: Rex}]}
+    slow: {latency: 2s, body: []}
+    server_error: {status: 500, body: generate}
+
+delete:
+  route: DELETE /pets/{id}
+  responses: {204: {}}
+  states:
+    no_content: {status: 204}
+
+get:
+  route: GET /pets/{id}
+  responses: {200: {type: object, properties: {id: {type: integer}}}}
+  states:
+    success: {body: generate}

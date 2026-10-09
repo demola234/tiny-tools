@@ -1,0 +1,14 @@
+status: implemented
+owners: { backend: [ademola], frontend: [ada] }
+
+get:
+  route: GET /health
+  summary: Whether the API is up; the first call gets 503 while it starts
+  mode: sequential
+  states:
+    starting:
+      status: 503
+      headers: { Retry-After: "1" }
+      body: { ok: false, reason: starting }
+    up:
+      body: { ok: true }

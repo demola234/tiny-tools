@@ -1,0 +1,7 @@
+! exec mockmachina --nope
+! stdout .
+stderr 'Unknown flag: --nope\.'
+
+! exec mockmachina nope
+! stdout .
+stderr 'Unknown command "nope" for "mockmachina"\.'

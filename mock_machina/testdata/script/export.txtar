@@ -1,0 +1,47 @@
+cd shop
+exec mockmachina export
+stdout '^openapi: 3.1.0$'
+stdout '^  title: shop$'
+stdout 'operationId: users.list'
+
+exec mockmachina export -o openapi.yaml --title 'Shop API' --version 2.1.0
+! stdout .
+exists openapi.yaml
+grep '^  title: Shop API$' openapi.yaml
+grep '^  version: 2.1.0$' openapi.yaml
+
+exec mockmachina import openapi.yaml --dir copy/.mockmachina
+stdout 'wrote routes/users.yaml'
+exec mockmachina lint --dir copy/.mockmachina
+
+exec mockmachina export --format postman -o postman
+exists postman/shop.postman_collection.json
+exists postman/shop.postman_environment.json
+grep 'X-Mock-State' postman/shop.postman_collection.json
+! exec mockmachina export --format postman
+stderr 'export needs -o FOLDER'
+! exec mockmachina export --format xml
+stderr '"xml" isn.t one of: openapi, postman'
+
+exec mockmachina import postman/shop.postman_collection.json --dir fromcollection/.mockmachina
+stdout '^read Postman Collection v2.1 "shop"'
+
+cp broken.yaml .mockmachina/routes/broken.yaml
+! exec mockmachina export
+stderr 'the contract has problems; fix them first, or pass --force'
+exec mockmachina export --force -o forced.yaml
+exists forced.yaml
+
+-- shop/.mockmachina/routes/users.yaml --
+owners: { backend: [ademola] }
+list:
+  route: GET /users
+  summary: List users
+  states:
+    success: { body: { users: [] } }
+    unauthorized: { status: 401 }
+-- shop/broken.yaml --
+get:
+  route: get /broken
+  states:
+    ok: {}
