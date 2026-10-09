@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/demola234/tiny-tools/mock_machina/internal/cli"
+	"github.com/demola234/tiny-tools/mock_machina/internal/config"
 	"github.com/demola234/tiny-tools/mock_machina/internal/testkit"
 )
 
@@ -20,7 +21,29 @@ func storefront(t *testing.T) string {
 	if err := os.CopyFS(dst, os.DirFS(src)); err != nil {
 		t.Fatal(err)
 	}
+	resetStates(t, dst)
 	return dst
+}
+
+var storefrontDefaults = map[string]string{"cart.checkout": "placed", "orders.track": "delivered"}
+
+func resetStates(t *testing.T, dir string) {
+	t.Helper()
+	proj, _, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range proj.Routes {
+		want, ok := storefrontDefaults[r.ID]
+		if !ok {
+			want = r.States[0].Name
+		}
+		if r.Active != want {
+			if _, err := config.SetActive(dir, r.ID, want); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 }
 
 func TestExample_StorefrontLintsClean(t *testing.T) {
