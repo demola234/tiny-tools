@@ -141,6 +141,7 @@ ADR 007 sets the rules (test-first, red before green). These are the conventions
 - **The version shown to users** comes from `internal/buildinfo`. It reads Go's embedded build information (module version, commit, dirty flag), and release builds may override the version with `-ldflags "-X .../internal/buildinfo.version=vX.Y.Z"`.
 - **Breaking changes** need a changelog entry and, for the file format after the Phase 0 freeze, a new ADR and a migration. These include: the route file format, CLI flags, exit codes, JSON output, HTTP error bodies and the `X-Mock-*` headers.
 - **`CHANGELOG.md`** follows Keep a Changelog from v0.1.0.
+- **Releasing is a changelog edit.** Rename `## [Unreleased]` to `## [0.2.0] - 2026-11-01` (and start a new empty `## [Unreleased]` above it), then merge to `main`. The release workflow reads the newest version heading, tags `mock_machina/v0.2.0` if that tag doesn't exist, and publishes the release, the Homebrew formula, the Scoop manifest and the Docker image from that commit. Merges that don't add a version heading release nothing. Pushing a `mock_machina/v*` tag by hand still works. `go run ./tools/release latest` prints the version CI would tag.
 
 ## 15. Clean, simple code
 

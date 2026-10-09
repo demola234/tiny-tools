@@ -24,7 +24,15 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: release build|notes --version vX.Y.Z [--out dist] [--repo owner/name]")
+		return errors.New("usage: release build|notes --version vX.Y.Z [--out dist] [--repo owner/name], or release latest")
+	}
+	if args[0] == "latest" {
+		changelog, err := os.ReadFile("CHANGELOG.md")
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(os.Stdout, release.Latest(changelog))
+		return err
 	}
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	version := fs.String("version", "", "version to release, like v0.7.0")
