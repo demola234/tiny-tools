@@ -1,0 +1,54 @@
+[
+  {
+    "arguments": [
+      {
+        "name": "url",
+        "description": "base URL of the API, such as https://staging.example.com",
+        "required": true
+      }
+    ],
+    "description": "Compare the contract with a running API and say which side needs fixing",
+    "name": "check_live"
+  },
+  {
+    "arguments": [
+      {
+        "name": "method",
+        "description": "HTTP method, such as GET",
+        "required": true
+      },
+      {
+        "name": "path",
+        "description": "path with {parameters}, such as /orders/{id}",
+        "required": true
+      },
+      {
+        "name": "sample",
+        "description": "the JSON response the API returned",
+        "required": true
+      }
+    ],
+    "description": "Turn a real API response into a route with states",
+    "name": "draft_from_sample"
+  },
+  {
+    "arguments": [
+      {
+        "name": "base",
+        "description": "git ref to compare from, such as main; the last commit when left out"
+      }
+    ],
+    "description": "Explain contract changes for a pull request: what breaks and who needs to act",
+    "name": "explain_diff"
+  },
+  {
+    "arguments": [
+      {
+        "name": "route",
+        "description": "one route id, such as users.get; every route when left out"
+      }
+    ],
+    "description": "Find the states apps still need, such as errors, empty lists and slow responses, and add them",
+    "name": "suggest_states"
+  }
+]

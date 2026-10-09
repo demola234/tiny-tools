@@ -13,6 +13,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	code := cli.Run(ctx, cli.Env{
 		Args:   os.Args[1:],
+		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 		Info:   buildinfo.Read(),

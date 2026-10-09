@@ -1,0 +1,23 @@
+cd app/lib/src
+exec mockmachina lint
+stdout '^routes/health.yaml:1: warning: health.get has no owners'
+
+exec mockmachina state set health.get down
+stdout '^health.get: ok → down$'
+
+cd $WORK/elsewhere
+! exec mockmachina lint
+stderr 'no .mockmachina folder in .* or any folder above it \(create one, or pass --dir\)'
+
+-- app/.mockmachina/routes/health.yaml --
+get:
+  route: GET /health
+  summary: Health check
+  states:
+    ok: {}
+    down:
+      status: 503
+-- app/lib/src/main.dart --
+void main() {}
+-- elsewhere/readme.txt --
+no project here

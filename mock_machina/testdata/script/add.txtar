@@ -1,0 +1,24 @@
+exec mockmachina init --no-example
+
+exec mockmachina add GET /users --summary 'List users'
+stdout '^created routes/users.yaml with users.list \(GET /users\)$'
+stdout '^next: describe the response in routes/users.yaml$'
+
+exec mockmachina add GET /users/{id}
+stdout '^added users.get \(GET /users/\{id\}\) to routes/users.yaml$'
+
+exec mockmachina add POST /users --name invite
+stdout '^added users.invite \(POST /users\) to routes/users.yaml$'
+
+exec mockmachina state list
+stdout '^users.get +GET +/users/\{id\} +success$'
+stdout '^users.invite +POST +/users +created$'
+
+! exec mockmachina add GET /users
+stderr 'GET /users is already defined by route users.list'
+
+! exec mockmachina add get /things
+stderr 'method "get" must be uppercase: GET'
+
+exec mockmachina lint
+! stdout 'routes/users.yaml:[0-9]+: [^w]'

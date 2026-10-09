@@ -1,0 +1,14 @@
+ ● mockmachina  shop  http://127.0.0.1:4001  seed 42     ▁▁▁▁▁▁██▁█ 3 req · 20s 
+╭─ Routes 3 ───────────────────╮ ╭─ Requests 3 ────────────────────────────────╮
+│ ▸ session.create  POST /ses… │ │   12:01:03  GET   /users  200  success      │
+│     ● success  200           │ │   12:01:05  GET   /users/u_404  404  not_f… │
+│     ○ invalid  200           │ │   12:01:09  POST  /session  400  invalid  … │
+│   users.get  GET /users/{id} │ │                                             │
+│   users.list  GET /users     │ │                                             │
+│                              │ │                                             │
+│                              │ │                                             │
+│                              │ │                                             │
+│                              │ │                                             │
+╰──────────────────────────────╯ ╰─────────────────────────────────────────────╯
+                                                                                
+ ↑↓ move  ⏎ set state  / filter  tab requests  r reload  l lint  q quit         

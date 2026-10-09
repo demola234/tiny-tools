@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/demola234/tiny-tools/main/mock_machina/schema/route.schema.json
+list:
+  route: GET /v1/orders
+  summary: List orders
+  request:
+    query:
+      page: {type: integer, minimum: 1}
+      status: {type: string, enum: [open, closed]}
+    headers: {X-Request-Id: {type: string, required: true}}
+  responses: {200: OrderList, default: Problem}
+  states:
+    some_orders: {body: {orders: [{id: o_1, total: 12.5, note: null, lines: []}], next: 2}}
+    no_orders: {body: {orders: [], next: null}}
+    server_error: {status: 500, body: generate}
+
+create:
+  route: POST /v1/orders
+  summary: Create an order.
+  request:
+    body:
+      type: object
+      required: [lines]
+      properties: {lines: {type: array, minItems: 1, items: {$ref: Line}}}
+  responses: {201: Order, 422: Problem}
+  states:
+    created: {status: 201, body: generate}
+    invalid: {status: 422, body: {error: cart is empty}}
+
+get:
+  route: GET /v1/orders/{orderId}
+  request:
+    params: {orderId: {type: string, pattern: ^o_}}
+  responses: {200: Order, 404: Problem}
+  states:
+    success: {body: generate}
+    not_found: {status: 404, body: generate}
+
+delete:
+  route: DELETE /v1/orders/{orderId}
+  request:
+    params: {orderId: {type: string, pattern: ^o_}}
+  responses: {204: {}}
+  states:
+    no_content: {status: 204}

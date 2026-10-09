@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "mockmachina": {
+      "type": "stdio",
+      "command": "EXE",
+      "args": ["mcp", "--dir", "DIR"]
+    }
+  }
+}

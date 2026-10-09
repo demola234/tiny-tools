@@ -1,0 +1,68 @@
+status: draft
+owners: { backend: [ademola], frontend: [ada] }
+
+list:
+  route: GET /orders
+  summary: Your orders; needs an Authorization header
+  responses:
+    200: OrderList
+    default: Error
+  rules:
+    - when: { header.authorization: { exists: false } }
+      state: unauthorized
+  states:
+    success:
+      body: orders.json
+    none:
+      body: { orders: [] }
+    unauthorized:
+      status: 401
+      headers: { WWW-Authenticate: Bearer }
+      body: { error: sign in first }
+
+get:
+  route: GET /orders/{id}
+  summary: One order, generated from the Order schema
+  examples: { id: o_1001 }
+  responses:
+    200: Order
+    default: Error
+  rules:
+    - when: { path.id: o_404 }
+      state: not_found
+  states:
+    found:
+      body: generate
+    not_found:
+      status: 404
+      body: { error: order not found }
+
+track:
+  route: GET /orders/{id}/tracking
+  summary: Where the order is; each call moves it one stage on
+  examples: { id: o_1001 }
+  responses:
+    200: Tracking
+    default: Error
+  rules:
+    - when: { path.id: o_404 }
+      state: not_found
+    - when: { call: 1 }
+      state: packed
+    - when: { call: 2 }
+      state: in_transit
+    - when: { call: 3 }
+      state: out_for_delivery
+  active: delivered
+  states:
+    packed:
+      body: { order: "{{ path.id }}", stage: packed }
+    in_transit:
+      body: { order: "{{ path.id }}", stage: in_transit, eta: "{{ fake.date.future }}" }
+    out_for_delivery:
+      body: { order: "{{ path.id }}", stage: out_for_delivery, eta: today }
+    delivered:
+      body: { order: "{{ path.id }}", stage: delivered }
+    not_found:
+      status: 404
+      body: { error: order not found }

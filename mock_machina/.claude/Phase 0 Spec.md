@@ -18,6 +18,63 @@ All 18 decisions in §1 were agreed on 2026-10-06, each as recommended.
 
 ---
 
+## 0. Direction change, 2026-10-07: one slice that works
+
+Instead of building every Phase 0 package across all protocols, the work now goes one vertical slice at a time, each one working end to end before the next starts.
+
+**Slice 1, done: serve HTTP mocks.**
+
+- `mockmachina start [--dir .mockmachina] [--host 127.0.0.1] [--port 4001]` loads `.mockmachina/routes/<id>/route.yaml` and serves it.
+- Route fields: `id`, `method`, `path`, `active`, `states`. State fields: `status`, `headers`, `body`. A body is a file next to `route.yaml`, or inline YAML that becomes JSON in the author's key order.
+- State choice: the `X-Mock-State` header, then `?__state=`, then `active`. Responses carry `X-Mock-State` and `X-Mock-Route`. Unknown states get a 400 JSON body and unknown routes a 404 JSON body.
+- Every mistake in the files is reported as `file:line: message (fix)`, and nothing is served until they're fixed.
+- One log line per request: `GET /users 200 users.list:empty (header)`.
+- Packages: `model` (trimmed to HTTP), `config` (loader), `server` (handler), `cli` (`start`).
+
+**Slice 2, done: hot reload.**
+
+- `start` polls `.mockmachina/` every `--watch-interval` (default 250ms), fingerprinting each file's path, size and modification time. Polling needs no dependency and works in Docker and on network folders.
+- A change is acted on once the folder is unchanged for one more tick, so a save made in several steps reloads once.
+- The fingerprint is taken before the first load, so no edit made during startup is missed.
+- A good reload swaps the whole router atomically (`server.Live`, one `atomic.Pointer`).
+- A failed reload prints `reload failed, still serving the previous version:` and each problem, and keeps serving the last good version.
+- New packages: `clock` (tests run in `testing/synctest` time) and `watch`.
+
+**Slice 3, done: `mockmachina state set ROUTE STATE [--dir]`.**
+
+- Rewrites only the bytes of the `active` value, found through the YAML node's line and column, so comments, quoting, key order and CRLF line endings stay as they were. Re-encoding the YAML would reformat the file.
+- Written with `config.WriteFileAtomic`: a dot-named temp file in the same folder (the watcher ignores it), then a rename. Permissions are kept.
+- Unknown routes and states get suggestions; a route whose file has problems is refused, with the problems listed.
+- Prints `users.list: success → empty`, or `users.list is already empty` without touching the file.
+- A running `start` picks the change up through hot reload.
+- `state` and the root share `runGroup`, so an unknown subcommand is a usage error (exit 2), not silent help.
+
+**Phase 0 finished, 2026-10-07.**
+
+- **Route metadata:** `summary`, `status` (default draft), `owners`, `group`, `x-*` at route and state level. All optional.
+- **Path checks at load time:** unclosed braces, partial-segment parameters, bad or repeated parameter names, `?`/`#`.
+- **`lint [--dir] [--strict]`:** load problems plus warnings (no summary, no 4xx/5xx state, no owners). Warnings come from `config.Warnings` only, so `start` refuses on errors alone.
+- **Project discovery:** without `--dir`, every command walks up from the working directory to the nearest `.mockmachina/` (`cli.FindProject`).
+- **Command suggestions:** unknown commands and subcommands get "did you mean".
+- **`config.yaml`:** `version`, `host`, `ports.mock`. Flags win over it; changing host or port while running prints a restart notice.
+- **JSON Schemas:** `schema/route.schema.json` and `schema/config.schema.json`, kept in sync with the loader's field lists by a test.
+- **`internal/archtest`:** enforces the package map and that `testkit` is test-only.
+- **`docs/file-format.md`:** every `yaml route`/`yaml config` example in it is loaded by a test.
+- **CI:** GitHub Actions pinned to commit SHAs.
+- **Deferred:** `seed` is deferred to Phase 5, its first user. The format freeze needs the review by one backend and one frontend developer.
+
+**Format change, 2026-10-07: one file per resource** (replaces one folder per route).
+
+- `routes/<resource>.yaml` holds named routes. Each route's id is `<resource>.<name>`, e.g. `users.list`. There's no `id:` field.
+- `route: GET /users` replaces `method` and `path`. `active` is optional and defaults to the first state.
+- `owners` and `status` at the top of the file apply to every route; a route can override either.
+- `group` is gone: the file name is the group.
+- Body files live in `routes/<resource>/`. A `.yml` file gets a reminder to rename it.
+- `state set` edits the `active` value inside the named route, or adds `active:` above `states:`, matching that line's indentation and line ending. A one-line (flow-style) route without `active` is refused, with a hint.
+- Updated to match: the schema, docs, examples and fixtures. `model.ValidRouteID` was removed.
+
+The model was trimmed to what the slice uses. The format grows additively as later slices add fields, test-first. The sections below are the earlier plan, kept for reference; the decisions in §1 still hold where a slice touches them.
+
 ## 1. Decisions to close first
 
 Writing the spec at this level turned up gaps the playbook left open. Every one of them affects the frozen file format or a public behaviour, so they're cheap to decide now and expensive later. Mark each **Agreed** or write your alternative.
@@ -864,6 +921,15 @@ func ValidVarName(s string) bool   // ^[a-zA-Z_][a-zA-Z0-9_]*$
 ```
 
 `ParseSelector`, `ParseGRPCCode` and `ParseDuration` return wrapped sentinel errors (`ErrUnknownScope`, `ErrUnknownGRPCCode`, `ErrNegativeDuration`, `ErrMissingUnit`). The loader turns those into `Problem`s with hints.
+
+### 5.1a As built in task 5
+
+- **WebSocket and SSE routes claim `GET <path>`**, not `WS`/`SSE` keys: both are HTTP GET requests underneath, so they collide with a GET route on the same path. `TestRoute_Keys_WebSocketCollidesWithGet` pins it.
+- Errors: `ErrInvalidDuration`, `ErrMissingUnit`, `ErrNegativeDuration`, `ErrUnknownGRPCCode`, `ErrUnknownScope`, `ErrSelectorName`.
+- `ParseGRPCCode` rejects `+5` and `05` (only canonical digits).
+- The YAML-keyword list is private until the `reserved-state-name` check needs it.
+- golangci's misspell ignores `cancelled`: gRPC's code is spelled `CANCELLED`.
+- No comments in code (engineering.md §11).
 
 ### 5.2 Tests (write in this order)
 

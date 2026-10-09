@@ -1,0 +1,62 @@
+{
+  "info": {
+    "name": "Shop",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/users?page=1", "host": ["{{baseUrl}}"], "path": ["users"], "query": [{ "key": "page", "value": "1" }] }
+          },
+          "response": [
+            {
+              "name": "Some users",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"users\":[{\"id\":\"u_1\",\"name\":\"Ada\",\"age\":36,\"nick\":null},{\"id\":\"u_2\",\"name\":\"Tunde\",\"age\":29,\"nick\":\"T\"}],\"next\":2}"
+            },
+            {
+              "name": "No users",
+              "code": 200,
+              "body": "{\"users\":[],\"next\":null}"
+            },
+            {
+              "name": "Session expired",
+              "code": 401,
+              "body": "{\"error\":\"session expired\"}"
+            }
+          ]
+        },
+        {
+          "name": "Get user",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/users/:id"
+          },
+          "response": [
+            { "name": "Found", "code": 200, "body": "{\"id\":\"u_1\",\"name\":\"Ada\"}" },
+            { "name": "Missing", "code": 404, "body": "{\"error\":\"not found\"}" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Create order",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"sku\":\"tea\"}" },
+        "url": "{{baseUrl}}/users/{{userId}}/orders"
+      },
+      "response": [
+        { "name": "Created", "code": 201, "body": "{\"id\":\"o_1\",\"total\":12.5}" },
+        { "name": "Plain text", "code": 500, "body": "oops" }
+      ]
+    }
+  ]
+}

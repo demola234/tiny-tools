@@ -1,0 +1,946 @@
+[
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Add a route"
+    },
+    "description": "Add a route with its states to routes/\u003cresource\u003e.yaml, creating the file if needed. The route is marked generated: true and status: draft until a person reviews it.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "description": "HTTP method in capitals, such as GET",
+          "type": "string"
+        },
+        "name": {
+          "description": "route name within its resource; picked from the method and path when left out (GET /users/{id} is users.get)",
+          "type": "string"
+        },
+        "path": {
+          "description": "path with {parameters}, such as /users/{id}",
+          "type": "string"
+        },
+        "states": {
+          "description": "the responses the route can give; the first is served by default",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "description": "the JSON response body: an object or array, in the order fields should appear",
+                "type": [
+                  "object",
+                  "array"
+                ]
+              },
+              "headers": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "response headers, such as {\"Retry-After\": \"60\"}",
+                "type": "object"
+              },
+              "latency": {
+                "description": "delay before responding, such as 800ms or 2s, at most 1m",
+                "type": "string"
+              },
+              "name": {
+                "description": "state name: lowercase letters, digits and underscores, such as not_found",
+                "type": "string"
+              },
+              "status": {
+                "description": "HTTP status code; 200 when left out",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "summary": {
+          "description": "one line saying what the route returns",
+          "type": "string"
+        }
+      },
+      "required": [
+        "method",
+        "path",
+        "states"
+      ],
+      "type": "object"
+    },
+    "name": "add_route",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "createdFile": {
+          "type": "boolean"
+        },
+        "file": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "file",
+        "createdFile"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Add a state"
+    },
+    "description": "Add a state (a response) to an existing route, such as a 404, an empty list or a slow response. The state is marked generated: true until a person reviews it.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "description": "the JSON response body: an object or array, in the order fields should appear",
+          "type": [
+            "object",
+            "array"
+          ]
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "response headers, such as {\"Retry-After\": \"60\"}",
+          "type": "object"
+        },
+        "latency": {
+          "description": "delay before responding, such as 800ms or 2s, at most 1m",
+          "type": "string"
+        },
+        "name": {
+          "description": "state name: lowercase letters, digits and underscores, such as not_found",
+          "type": "string"
+        },
+        "route": {
+          "description": "route id, such as users.get",
+          "type": "string"
+        },
+        "status": {
+          "description": "HTTP status code; 200 when left out",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "route",
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "add_state",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyFile": {
+          "description": "file the body was written to, for bodies over 4 KB",
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "route": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "route",
+        "state",
+        "file",
+        "line"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Compare contract versions"
+    },
+    "description": "Compare the contract between git refs, or a ref and the working tree. Each change is breaking (apps built on the old contract fail), warning, info or safe.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "description": "git ref to compare from, such as main; HEAD when left out",
+          "type": "string"
+        },
+        "head": {
+          "description": "git ref to compare to; the working tree when left out",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "diff",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "string"
+        },
+        "changes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "message": {
+                "type": "string"
+              },
+              "route": {
+                "type": "string"
+              },
+              "severity": {
+                "description": "breaking, warning, info or safe",
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "severity",
+              "route",
+              "message",
+              "file",
+              "line"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "head": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "base",
+        "head",
+        "changes"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Compare with a live API"
+    },
+    "description": "Call a running API and compare its responses with the contract: statuses, content types, headers and JSON body shape. Only GET, HEAD and OPTIONS are sent.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "path parameter values, such as {\"id\": \"u_1\"}; routes' examples are used otherwise",
+          "type": "object"
+        },
+        "url": {
+          "description": "base URL of the running API, such as https://staging.example.com",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    },
+    "name": "diff_live",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "string"
+        },
+        "changes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "message": {
+                "type": "string"
+              },
+              "route": {
+                "type": "string"
+              },
+              "severity": {
+                "description": "breaking, warning, info or safe",
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "severity",
+              "route",
+              "message",
+              "file",
+              "line"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "head": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "base",
+        "head",
+        "changes"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get a route"
+    },
+    "description": "Show one route in full: every state's status, headers, latency and body, and where it's defined.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "route id, such as users.get",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "name": "get_route",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "description": "the state served when a request doesn't ask for one",
+          "type": "string"
+        },
+        "crud": {
+          "additionalProperties": false,
+          "description": "for CRUD routes: the in-memory collection behind list, get, create, replace, update and delete",
+          "properties": {
+            "collection": {
+              "type": "string"
+            },
+            "idField": {
+              "type": "string"
+            },
+            "items": {
+              "description": "items in data/\u003ccollection\u003e.json at start",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "collection",
+            "idField",
+            "items"
+          ],
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "examples": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "path parameter values used to call a live API",
+          "type": "object"
+        },
+        "file": {
+          "type": "string"
+        },
+        "generated": {
+          "description": "written by an AI assistant and not yet reviewed by a person",
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "method": {
+          "type": "string"
+        },
+        "mode": {
+          "description": "how the state is picked: active, rules (first matching rule), sequential or random",
+          "type": "string"
+        },
+        "owners": {
+          "additionalProperties": false,
+          "properties": {
+            "backend": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "frontend": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            }
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "what the app must send; requests that don't match get a 400",
+          "properties": {
+            "body": {
+              "description": "a schema name from schemas/, or the schema itself"
+            },
+            "headers": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "schema": {
+                    "description": "a schema name from schemas/, or the schema itself"
+                  }
+                },
+                "required": [
+                  "name",
+                  "required",
+                  "schema"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "params": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "schema": {
+                    "description": "a schema name from schemas/, or the schema itself"
+                  }
+                },
+                "required": [
+                  "name",
+                  "required",
+                  "schema"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "query": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "schema": {
+                    "description": "a schema name from schemas/, or the schema itself"
+                  }
+                },
+                "required": [
+                  "name",
+                  "required",
+                  "schema"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            }
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "responses": {
+          "description": "the schema of each response; lint checks every state's body against it",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "schema": {
+                "description": "a schema name from schemas/, or the schema itself"
+              },
+              "status": {
+                "description": "an HTTP status, or default",
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "schema"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "rules": {
+          "description": "checked in order; the first whose conditions all match picks the state",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "type": "string"
+              },
+              "when": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "description": "eq, ne, in, matches, exists, gt, gte, lt or lte",
+                      "type": "string"
+                    },
+                    "selector": {
+                      "type": "string"
+                    },
+                    "value": true,
+                    "values": {
+                      "items": true,
+                      "type": [
+                        "null",
+                        "array"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "selector",
+                    "op",
+                    "value"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              }
+            },
+            "required": [
+              "state",
+              "when"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "states": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "body": true,
+              "bodyFile": {
+                "description": "file the body is read from, relative to the project folder",
+                "type": "string"
+              },
+              "bodyOmitted": {
+                "description": "why the body isn't included",
+                "type": "string"
+              },
+              "contentType": {
+                "type": "string"
+              },
+              "fault": {
+                "additionalProperties": false,
+                "description": "how this state fails like a network does",
+                "properties": {
+                  "after": {
+                    "type": "string"
+                  },
+                  "rate": {
+                    "type": "number"
+                  },
+                  "type": {
+                    "description": "timeout, reset or truncated",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "rate"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "generated": {
+                "description": "written by an AI assistant and not yet reviewed by a person",
+                "type": "boolean"
+              },
+              "headers": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "jitter": {
+                "description": "latency varies by up to this either way",
+                "type": "string"
+              },
+              "latency": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "set": {
+                "additionalProperties": true,
+                "description": "variables stored when this state is served",
+                "type": "object"
+              },
+              "status": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "status",
+              "line"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "status": {
+          "description": "lifecycle: draft, agreed, implemented or deprecated",
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "method",
+        "path",
+        "status",
+        "active",
+        "mode",
+        "states",
+        "file",
+        "line"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Lint the contract"
+    },
+    "description": "Check the contract for mistakes. Errors stop the mock from serving a file; warnings are suggestions.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "name": "lint",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "type": "integer"
+        },
+        "problems": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "message": {
+                "type": "string"
+              },
+              "severity": {
+                "description": "error or warning",
+                "type": "string"
+              }
+            },
+            "required": [
+              "severity",
+              "file",
+              "message"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "warnings": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "errors",
+        "warnings",
+        "problems"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List routes"
+    },
+    "description": "List the contract's routes with their states and which state each serves by default.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "description": "only routes of this resource, such as users for routes/users.yaml",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_routes",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "description": "lint errors in the project; routes in broken files may be missing, so call lint",
+          "type": "integer"
+        },
+        "routes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "active": {
+                "description": "the state served when a request doesn't ask for one",
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "generated": {
+                "description": "written by an AI assistant and not yet reviewed by a person",
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "method": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "states": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "status": {
+                "description": "lifecycle: draft, agreed, implemented or deprecated",
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "method",
+              "path",
+              "status",
+              "active",
+              "states",
+              "file",
+              "line"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "routes"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Set the default state"
+    },
+    "description": "Choose which state a route serves by default, for everyone using the mock.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "route": {
+          "description": "route id, such as users.get",
+          "type": "string"
+        },
+        "state": {
+          "description": "the state to serve by default",
+          "type": "string"
+        }
+      },
+      "required": [
+        "route",
+        "state"
+      ],
+      "type": "object"
+    },
+    "name": "set_state",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "type": "string"
+        },
+        "previous": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "route",
+        "previous",
+        "current"
+      ],
+      "type": "object"
+    }
+  }
+]

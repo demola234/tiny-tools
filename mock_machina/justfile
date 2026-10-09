@@ -59,5 +59,18 @@ build:
 smoke: build
     ./bin/mockmachina --version | grep -E '^mockmachina version (v[0-9]|\(devel\))'
 
+# run the Flutter example's widget tests against the real binary
+example: build
+    cd examples/flutter_shop && flutter test
+
 # everything CI runs
 ci: lint test vuln smoke
+
+# replace the bundled Swagger UI with another release: just swagger-ui 5.33.1
+swagger-ui version:
+    for f in swagger-ui-bundle.js swagger-ui.css LICENSE NOTICE; do curl -sfL "https://unpkg.com/swagger-ui-dist@{{version}}/$f" -o "internal/docs/swaggerui/$f"; done
+    cd internal/docs/swaggerui && { echo "swagger-ui-dist {{version}} from https://unpkg.com/swagger-ui-dist@{{version}}/ (Apache-2.0, see LICENSE and NOTICE)"; shasum -a 256 swagger-ui-bundle.js swagger-ui.css; } > VERSION
+
+# build every release archive, checksums, Homebrew formula and Scoop manifest into dist/, without publishing
+release-dry version="v0.0.0-dry":
+    rm -rf dist && go run ./tools/release build --version {{version}} --out dist

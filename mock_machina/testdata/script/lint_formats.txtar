@@ -1,0 +1,28 @@
+! exec mockmachina lint --format json
+stdout '\{"severity":"error","file":"routes/users.yaml","line":3,"message":"method \\"get\\" must be uppercase: GET"\}'
+stdout '"severity":"warning","file":"routes/orders.yaml","line":1,'
+
+! exec mockmachina lint --format github
+stdout '^::error file=.mockmachina/routes/users.yaml,line=3::method "get" must be uppercase: GET$'
+stdout '^::warning file=.mockmachina/routes/orders.yaml,line=1::'
+
+exec mockmachina lint --only orders
+! stdout 'users.yaml'
+stdout 'orders.yaml'
+
+! exec mockmachina lint --only usr
+stderr '(?i)no routes file "usr" \(did you mean "users"\?\)'
+! exec mockmachina lint --format xml
+stderr '"xml" isn.t one of: text, json, github'
+
+-- .mockmachina/routes/users.yaml --
+list:
+  summary: List users
+  route: get /users
+  states:
+    ok: {}
+-- .mockmachina/routes/orders.yaml --
+list:
+  route: GET /orders
+  states:
+    ok: {}

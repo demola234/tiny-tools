@@ -1,0 +1,20 @@
+{
+  "active": "up",
+  "file": "routes/health.yaml",
+  "id": "health.get",
+  "line": 1,
+  "method": "GET",
+  "mode": "active",
+  "path": "/health",
+  "states": [
+    {
+      "bodyFile": "routes/health/big.txt",
+      "bodyOmitted": "the body is 40 KB; read routes/health/big.txt for it",
+      "contentType": "text/plain; charset=utf-8",
+      "line": 4,
+      "name": "up",
+      "status": 200
+    }
+  ],
+  "status": "draft"
+}

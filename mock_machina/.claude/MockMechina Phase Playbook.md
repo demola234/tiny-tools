@@ -4,7 +4,7 @@ Oct 5, 2026 · @Ademola Kolawole
 
 ## How to use this playbook
 
-This playbook plans MockMechina one phase at a time, in enough depth to start coding from it. Each phase is planned only after the previous one is reviewed, so later phases can learn from earlier ones. Phases 0 to 2 are planned below; Phases 3 to 9 are placeholders until their turn.
+This playbook plans MockMechina one phase at a time, in enough depth to start coding from it. Each phase is planned only after the previous one is reviewed, so later phases can learn from earlier ones. Phases 0 to 2, 4 and 5 are planned below; Phase 3 was planned in conversation and is built; Phases 5 to 9 are placeholders until their turn.
 
 Every phase section answers the same questions: what it delivers and doesn't, which decisions must close first, the flows, what gets built and where, the tools and things we need, the build order, and how we know it's done.
 
@@ -12,12 +12,12 @@ Every phase section answers the same questions: what it delivers and doesn't, wh
 | --- | --- | --- | --- |
 | 0 | – | Repo, data model, loader, frozen file format, CI | Planned below |
 | 1 | v0.1 | init, add, start, switchable states, hot reload | Planned below |
-| 2 | v0.2 | Schemas, lint, OpenAPI / Swagger / Postman | Planned below |
-| 3 | v0.3 | Diff, breaking changes, GitHub Action, verify, proxy | Next |
-| 4 | v0.4 | MCP server, AI draft and suggest | Later |
-| 5 | v0.5 | Latency, faults, fake data, rules, CRUD | Later |
-| 6 | v0.6 | WebSocket, SSE, gRPC, webhooks | Later |
-| 7 | v0.7 | TUI, Docker, releases, HTTPS | Later |
+| 2 | v0.2 | Schemas, lint, OpenAPI / Swagger / Postman | Built; release left |
+| 3 | v0.3 | Diff, breaking changes, GitHub Action, verify, proxy | Built; manual checks left (`verify` became `diff --live`; recording left out) |
+| 4 | v0.4 | MCP server, AI draft and suggest | Built; manual checks left |
+| 5 | v0.5 | Latency, faults, fake data, rules, CRUD | Built; release left |
+| 6 | v0.6 | WebSocket, SSE, gRPC, webhooks, Graphql | Later |
+| 7 | v0.7 | TUI, Docker, releases, HTTPS | Built; release, Docker build and device checks left |
 | 8 | v0.8 | Control API and live events | Later |
 | 9 | v0.9 | Web dashboard | Later |
 
@@ -962,3 +962,525 @@ Tasks 5 and 6 can run in parallel with 3 and 4. Tasks 10 and 11 can run in paral
 3. Is there a real team's spec available for the exit check, and can it be added to the corpus, or does it have to stay private?
 
 Phase 3 (collaboration: diff, breaking changes, verify, proxy) is next.
+
+### Re-plan for the current format (2026-10-08)
+
+The sections above were written for the old layout (one folder per route, `route.yaml`, `$ref: ../../schemas/x.yaml#/User`). Phase 2 is built on the format that shipped: one file per resource, named routes, and the Phase 5 behaviour fields. Where this re-plan differs from the sections above, this re-plan wins.
+
+**Schemas and references**
+
+```yaml
+# .mockmachina/schemas/users.yaml
+User:
+  type: object
+  required: [id, name, email]
+  properties:
+    id: { type: string, pattern: "^u_" }
+    name: { type: string, minLength: 1 }
+    email: { type: string, format: email }
+UserList:
+  type: object
+  required: [users]
+  properties:
+    users: { type: array, items: { $ref: User } }
+    nextPage: { type: [integer, "null"] }
+```
+
+```yaml
+# .mockmachina/routes/users.yaml
+list:
+  route: GET /users
+  request:
+    query: { page: { type: integer, minimum: 1 } }
+  responses:
+    200: UserList
+    401: Error
+  states:
+    success: { body: users.json }
+    unauthorized: { status: 401, body: { error: session expired } }
+```
+
+- **Names, not paths.** Schema names are unique across `schemas/*.yaml`. A route refers to one by name (`200: UserList`), and schemas refer to each other with `$ref: User`. An inline mapping is also allowed anywhere a name is. This is simpler than relative file paths, and OpenAPI's `#/components/schemas/User` maps to it one-to-one.
+- **Dialect:** JSON Schema 2020-12, as in OpenAPI 3.1. Formats are enforced.
+- **Route fields:** `request: { params, query, headers, body }` (each a schema, or a map of name to schema for params, query and headers) and `responses: { <status> | default: schema }`.
+- **State fields:** `body: generate` builds the body from the response schema, and `validateRequest: false` lets a state accept anything.
+
+**Build order**
+
+| # | Task | Done when | Status |
+| --- | --- | --- | --- |
+| 1 | `internal/schema`: load `schemas/*.yaml`, resolve name refs, compile with jsonschema v6, errors with file:line and "did you mean" | Bad refs and unknown keywords fail lint with file:line | Done |
+| 2 | Route `request` and `responses`; lint: each state's body matches its status's schema, in contract language, root cause only; status coverage both ways | Golden messages for type, required, format, enum, pattern | Done. A documented status without a state is a warning, not an error |
+| 3 | Request validation in the server: params, query (text converted to numbers and booleans per schema), headers, JSON body; 400 `invalid_request` with problems; `validateRequest: false`; `start --no-request-validation`; the log names the first problem | One test per part; extra fields allowed; opt-outs work | Done. An empty body reports `body: is required` |
+| 4 | `body: generate`, deterministic from the schema (example, enum, format, min/max, required only); every generated body validated | 500 generated bodies across the corpus all validate; same every run | Done. Generation runs at load; a body that doesn't fit its schema asks for an example |
+| 5 | `mockmachina import openapi.yaml` (3.0 and 3.1): routes per resource, schemas, one state per response and example, `x-mockmachina-*` round trip, summary output | Petstore 3.0 and 3.1 and the mid-size spec import and lint clean | Done. Corpus: 5 downloaded specs and one written for MockMachina; all import, write and load clean |
+| 6 | Swagger 2.0 import, by converting to the same internal form | Swagger Petstore imports and lints clean | Done, converted in memory |
+| 7 | `mockmachina export --format openapi` (3.1): states as named examples, Phase 5 fields as `x-mockmachina-*`, sorted keys | Import → export → import is identical for the corpus | Done. Round trip exact for the corpus; MockMachina fields travel as `x-mockmachina`; exports validated against the OpenAPI 3.1 schema in tests |
+| 8 | Re-import merge: keeps hand-edited states, `active`, `owners` and `status`; reports operations removed upstream; `--dry-run` | Merge golden | Done. Edits in place keep comments and formatting |
+| 9 | Postman: import with schema guessing (inferred schemas flagged in lint) and export with per-state requests and an environment | Collection imports; export opens in Postman | Done; guessed schemas are marked and warned about |
+| 10 | `diff` sees schemas: a removed response field, a changed field type or a new required request field is breaking; a new optional field is safe | Rule table tested | Done |
+| 11 | `mockmachina docs`: Swagger UI over a live export (`--serve`) or static files (`-o`) | Page lists every route and state offline | Done; Swagger UI 5.33.1 bundled, `just swagger-ui VERSION` updates it |
+| 12 | MCP `get_route` shows schemas; lint `--format json|github`, `--only`; exit tests; docs; corpus README | Exit tests green on all three OSes | Done: `TestExitPhase2_RoundTrip`, `_LintType`, `_RequestValidation`; `lint --format`, `--only RESOURCE`; docs in contracts.md and import-export.md |
+
+**Decided (2026-10-08):** our own OpenAPI 3.0/3.1 and Swagger 2.0 reader on go.yaml.in/yaml/v3, not kin-openapi; Swagger UI bundled into the binary. YAML stays in `internal/config`; a new `internal/schema` compiles and validates with jsonschema v6.
+
+**Exit criteria**
+
+- `TestExitPhase2_RoundTrip`: import the mid-size spec, lint clean, export, import again, compare.
+- `TestExitPhase2_LintType`: change a field in a body from a number to a string; lint fails with the file, the path in the body and the schema.
+- `TestExitPhase2_RequestValidation`: a request missing a required field gets a 400 naming it.
+
+
+## Phase 4: AI through MCP (v0.4)
+
+### Goal and scope
+
+People already have an AI assistant: Claude Code, Claude Desktop, Cursor, Copilot, ChatGPT. Phase 4 doesn't add another one. It turns MockMachina into an MCP server, so the assistant a person already uses can read the contract, suggest what's missing and write routes and states. The assistant does the thinking. MockMachina does the reading, the writing and the checking, with the same validation as `add` and `lint`. MockMachina never calls a model and never holds an API key.
+
+```text
+person ──asks──▶ their assistant ──MCP tools──▶ mockmachina mcp ──▶ .mockmachina/
+                 (reasoning)                     (validation, atomic writes)
+```
+
+**In scope**
+
+- `mockmachina mcp`: an MCP server over stdio, for the project it finds from `--dir` or the current folder.
+- Read tools: `list_routes`, `get_route`, `lint`, `diff`, `diff_live`.
+- Write tools: `add_route`, `add_state`, `set_state`. All writes go through `internal/config`, and are validated and written atomically.
+- A `generated` field, so anything an assistant writes is marked until a person reviews it.
+- Prompts: ready-made tasks the assistant can offer (suggest missing states, draft from a sample response, explain a diff, check the live API).
+- `--read-only`, which leaves out the write tools.
+- `--print-config CLIENT`, which prints the setup snippet for each assistant.
+- Streamable HTTP (`--http`) for assistants that only connect to remote servers, such as ChatGPT. Built last.
+- More `lint` rules that suggest without AI: deterministic gaps every user gets.
+
+**Out of scope**
+
+- MockMachina calling a model itself, or a bring-your-own-API-key mode. Revisit only if someone needs suggestions in CI, where there's no assistant.
+- Delete and rename tools. An assistant that removes routes is a bigger risk than one that adds them. People do that in the files.
+- MCP resources, sampling and elicitation. Tools and prompts work in every client; the rest is uneven.
+- A hosted service.
+
+**Done when** a person connects Claude Code to `mockmachina mcp` with one command, asks "add the error states users.get is missing", approves the writes, and `mockmachina lint` passes with the new states marked `generated: true`.
+
+### Flows
+
+**Set up once.**
+
+```text
+$ mockmachina mcp --print-config claude-code
+claude mcp add mockmachina -- mockmachina mcp --dir /Users/ada/shop/.mockmachina
+
+$ mockmachina mcp --print-config cursor
+{ "mcpServers": { "mockmachina": { "command": "mockmachina", "args": ["mcp", "--dir", "/Users/ada/shop/.mockmachina"] } } }
+```
+
+`--print-config` always writes an absolute `--dir`, because some clients (Claude Desktop) start servers from `/`.
+
+**Suggest missing states.**
+
+```text
+you:       what states is users.get missing?
+assistant: [calls get_route users.get, lint]
+           users.get only has "found" (200). Apps also need:
+           - not_found (404), when the id doesn't exist
+           - unauthorized (401), when the session expired
+           - server_error (500)
+           Add them?
+you:       yes
+assistant: [calls add_state ×3, you approve each]
+           Added 3 states to routes/users.yaml, marked generated: true.
+           Review them, then delete the generated lines.
+```
+
+**Draft from a sample response.** Paste a JSON response from the real API, and the assistant calls `add_route` with it as the first state.
+
+**Explain a diff, check the live API.** The assistant calls `diff` or `diff_live` and writes the PR comment or the drift summary in plain language.
+
+### Decisions
+
+| # | Question | Decision | Why |
+| --- | --- | --- | --- |
+| P4-1 | Which MCP library? | The official `github.com/modelcontextprotocol/go-sdk`, pinned (v1.8.0 at planning). Only `internal/mcp` imports it (depguard) | Maintained with the spec; typed tool inputs and outputs with generated JSON Schemas. It needs Go 1.25.0, and so do all its dependencies, so our floor holds |
+| P4-2 | Does MockMachina call a model? | No. No API keys, no provider clients | The person's assistant is better and already set up. Nothing to keep up to date per provider, no keys to leak |
+| P4-3 | Transport | stdio first; streamable HTTP second, on `127.0.0.1` by default. Any other address needs `--token` (or `MOCKMACHINA_MCP_TOKEN`), checked as a bearer token | stdio covers every local client. HTTP is only for clients that can't start a process |
+| P4-4 | How do writes happen? | Only through `internal/config` (`AddRoute`, a new `AddState`, `SetActive`). `internal/mcp` never touches files | One set of rules for the CLI and the assistant. A write that would break the contract is refused before anything is written |
+| P4-5 | How are AI writes marked? | Routes and states written through MCP get `generated: true`. A new route also gets `status: draft`. `lint` warns until a person deletes the line | Reviewers see what nobody has checked. It's a plain line in the file, so removing it is the review |
+| P4-6 | Are writes on by default? | Yes. Clients ask the person before each tool call. `--read-only` leaves the write tools out. Tools carry MCP hints (`readOnlyHint`, `idempotentHint`) so clients can tell them apart | Writing states is the point of the feature. Teams that want suggestions only have a switch |
+| P4-7 | What does a bad tool call return? | A tool result with `isError` and the same message the CLI prints, including "did you mean". Not a protocol error | Assistants read tool results and correct themselves. Protocol errors usually stop them |
+| P4-8 | How does `diff_live` get auth headers? | From launch flags (`mockmachina mcp --live-header "Authorization: Bearer $TOKEN"`) in the client's config. The tool has no headers input. Safe methods only, with no way to include writes | Tokens stay out of the chat and the model's context. The assistant can't send writes to a real API |
+| P4-9 | What goes on stdout? | Only the protocol. Logs go to stderr | One stray line breaks the stdio connection. A test checks this |
+| P4-10 | Package layout | `internal/mcp` (server, tools, prompts) imports `config`, `diff`, `live`, `gitfs`, `model`. `cli` imports `mcp`. Archtest records both | Same shape as `server` and `live`: the CLI wires it, the package does the work |
+
+### Tools
+
+Every tool has a typed input and output. The SDK makes the JSON Schemas from the Go structs, and a golden file holds the whole tool list, so any change to names, descriptions or schemas shows up in review.
+
+| Tool | Input | Output | Built on | Hints |
+| --- | --- | --- | --- | --- |
+| `list_routes` | `resource?` | `[{id, method, path, summary, status, active, states: [{name, status}]}]` | `config.Load` | read-only |
+| `get_route` | `id` | The route with its states, bodies, headers, latency, file and line | `config.Load`, `FindRoute` | read-only |
+| `lint` | – | `{errors, warnings, problems: [{severity, file, line, message}]}` | The loader's problems | read-only |
+| `diff` | `base?`, `head?` | The `diff --format json` object | `gitfs`, `diff.Compare` | read-only |
+| `diff_live` | `url`, `params?` | The same object, for the live API | `live.Check` | read-only |
+| `add_route` | `method`, `path`, `name?`, `summary?`, `states: [{name, status?, body?, headers?, latency?}]` | `{id, file, line}` | `config.AddRoute`, `AddState` | write |
+| `add_state` | `route`, `name`, `status?`, `body?`, `headers?`, `latency?` | `{route, state, file, line}` | `config.AddState` (new) | write |
+| `set_state` | `route`, `state` | `{route, previous, current}` | `config.SetActive` | write, idempotent |
+
+`body` is JSON, written into the route file as YAML flow style when it's short and as a block when it isn't. Large bodies (over 4 KB) go to `routes/<resource>/<route>.<state>.json`, the same way people do it by hand.
+
+### Prompts
+
+| Prompt | Arguments | Asks the assistant to |
+| --- | --- | --- |
+| `suggest_states` | `route?` | Read the route (or all routes) and lint, propose the missing states apps need (errors, empty, slow), explain each, and write them only after the person agrees |
+| `draft_from_sample` | `method`, `path`, `sample` | Turn a real response into a route, with an error state alongside it |
+| `explain_diff` | `base?` | Run `diff` and write a short PR comment: what breaks, who owns it, what to do |
+| `check_live` | `url` | Run `diff_live` and explain the drift, separating "the backend is wrong" from "the contract is out of date" |
+
+The prompt texts live in `internal/mcp/prompts/*.md`, embedded with `embed`, so they can be read and reviewed as text.
+
+### Lint without AI
+
+Some suggestions need no model. They go in `lint`, as warnings, so everyone gets them:
+
+- A list route (`GET` on a collection) with no empty state.
+- A route with a path parameter and no 404 state.
+- A write route (`POST`, `PUT`, `PATCH`) with no 4xx state.
+- `generated: true` still present (P4-5).
+
+`lint` already warns about routes with no error state. These follow the same pattern and wording.
+
+### Build order
+
+| # | Task | Needs | Size | Done when | Status |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Add the SDK; depguard limits it to `internal/mcp`; archtest entries | – | S | `go` line unchanged, govulncheck clean, binary size change recorded | Done: v1.8.0, binary 13.8 → 16.5 MB |
+| 2 | `generated` field at route and state level: loader, JSON Schema, file-format doc, lint warning | – | S | Fixture and golden for the warning; schema test passes | Done |
+| 3 | `config.AddState`: insert a state under `states:` keeping the rest of the file byte for byte | – | M | Goldens for flow and block bodies, large bodies to files, duplicate names refused with a suggestion | Done; `AddRoute` also takes states now, for `add_route` |
+| 4 | `internal/mcp` server with `list_routes` and `get_route` | 1 | M | In-memory client tests; tool list golden | Done, with `lint` brought forward from 6 |
+| 5 | Write tools with `generated` marking and errors as results | 2, 3, 4 | M | Each write tool: success golden, refusal with "did you mean", file unchanged on refusal | Done, plus `generated` shown by `list_routes` and `get_route` |
+| 6 | `lint`, `diff`, `diff_live` tools; `--live-header` | 4 | S | Same output as the CLI's JSON formats; `diff_live` never sends a write | Done; `diff` and the CLI share `config.LoadAt` |
+| 7 | Prompts | 4 | S | Prompt list golden; each prompt's text renders with its arguments | Done |
+| 8 | `mockmachina mcp` command: `--dir`, `--read-only`, stdio | 5, 6, 7 | M | A real client starts the binary and lists tools; nothing but protocol on stdout | Done |
+| 9 | `--print-config` for claude-code, claude-desktop, cursor, vscode | 8 | S | Golden per client, absolute `--dir` | Done; uses the binary's full path, since some assistants start servers without your shell's `PATH` |
+| 10 | Lint rules without AI | 2 | S | Fixture and golden per rule | Done |
+| 11 | Streamable HTTP: `--http`, loopback default, `--token` | 8 | M | Token required off loopback; ChatGPT connects through a tunnel (manual) | Done: `/mcp`, token as a bearer header or `/mcp/<token>`; DNS-rebinding protection off when a token is set, so tunnels work. ChatGPT connection still to check by hand |
+| 12 | Exit scripts, `docs/ai.md`, README, CHANGELOG | 8–11 | S | Exit scripts green on all three OSes | Done: `TestExitPhase4_Stdio`, `TestExitPhase4_ReadOnly`, `docs/ai.md` |
+
+Tasks 2, 3 and 10 don't need the SDK and can start first. Task 11 can slip to a later release without blocking v0.4.
+
+### Tests, exit criteria and risks
+
+**Tests**
+
+| Kind | What it proves |
+| --- | --- |
+| In-memory client | Each tool, called through `mcp.NewInMemoryTransports`, returns the right output or error |
+| Tool and prompt goldens | Names, descriptions and schemas change only on purpose |
+| Write safety | A refused write leaves every file byte for byte the same; `--read-only` has no write tools |
+| Config edits | `AddState` keeps formatting and other routes untouched (goldens) |
+| Live safety | `diff_live` sends only `GET`, `HEAD`, `OPTIONS`, whatever the input says |
+| stdout | Running `mcp` over a real pipe writes only JSON-RPC to stdout |
+| HTTP | Off loopback without a token, nothing is served |
+
+**Exit criteria as automated tests**
+
+- `exit_phase4_stdio` (`TestExitPhase4_Stdio`): a Go test builds the binary, connects with the SDK's command transport, adds a state, and checks that `lint` passes and the state has `generated: true`.
+- `exit_phase4_readonly` (`TestExitPhase4_ReadOnly`): with `--read-only`, the tool list has no write tools and the project is unchanged after every call.
+- Manual once: Claude Code and one other client connect with `--print-config` output, and the "users.get is missing states" flow works end to end.
+
+**Exit checklist**
+
+- [x] All 12 build tasks Done
+- [ ] Exit tests green on all three OSes (green on macOS; Linux and Windows run in CI)
+- [ ] Manual check with two clients
+- [ ] v0.4.0 released
+
+**Risks**
+
+| Risk | Effect | Mitigation |
+| --- | --- | --- |
+| The assistant writes plausible but wrong states | Apps test against a made-up API | Marked `generated: true` and `status: draft`; lint warns until reviewed; `diff` shows them in PRs |
+| Tokens leak into the chat | Secrets in model logs | Headers only from launch flags (P4-8) |
+| SDK changes its API | Rework | Pinned version; only `internal/mcp` imports it |
+| A dependency raises the Go floor | CI fails on the `go` line | Checked at planning; task 1 checks again; pin like `x/text` if needed |
+| Assistant and person edit the same file at once | One edit lost | Atomic writes, so a file is never half-written; the last write wins. Revisit if it happens in practice |
+| A stray log line on stdout | Client disconnects | stdout reserved for the protocol, with a test (P4-9) |
+| ChatGPT's remote MCP rules change | HTTP task slips | Built last, checked at build time, not on the v0.4 critical path |
+
+**Open questions for you**
+
+1. Should writes be on by default (as planned, with the client asking each time), or should `--read-only` be the default?
+2. Should a leftover `generated: true` be a warning (fails only with `--strict`), or an error that blocks merging?
+3. Does v0.4 need ChatGPT, or can the HTTP transport come in a later release?
+
+## Phase 5: Realistic behaviour (v0.5)
+
+### Goal and scope
+
+Until now, a route answers with whichever state is active, the same way every time. Phase 5 makes the mock behave like a real API:
+- **Rules:** the state depends on the request. `id u_404` gets a 404, and a missing token gets a 401.
+- **Templates:** bodies echo what was asked for and fill in realistic fake data.
+- **Timing and faults:** responses arrive with jitter and sometimes fail the way networks do.
+- **Memory:** some routes remember what happened, either through variables or a full in-memory CRUD collection.
+
+App teams can then test real flows (log in, add to cart, see the cart) against the mock, not just single screens.
+
+The file format for all of this was frozen in Phase 0 (P0-01, P0-03, P0-04, P0-10, P0-11, P0-18; spec §4.3–4.4). This phase builds what the format already promises, adapted to the single-file-per-resource layout.
+
+**In scope**
+
+- `mode: active | rules | sequential | random`, `rules: [{ when, state }]`, with every selector and matcher in spec §4.4.
+- Templates in bodies and headers: `{{ path.id }}`, `{{ query.page }}`, `{{ body.email }}`, `{{ fake.person.name }}`, `{{ now }}`, `{{ uuid }}`. `template: false` turns them off for a state.
+- Fake data with no dependency, in locales `en` and `en_NG`, deterministic from `seed`.
+- `seed` and `locale` in `config.yaml`, with `--seed` on `start`. The seed is logged, so a run can be replayed.
+- `latency: { base, jitter }`.
+- `fault: timeout | reset | truncated`, or `{ type, rate, after }`.
+- `set:` on a state, which stores variables that rules and templates can read. `call`, the per-route request count.
+- `route: CRUD /path` with `crud: { collection, idField }`: an in-memory collection seeded from `data/<collection>.json`.
+- Lint for all of the above, the JSON Schema and docs.
+
+**Out of scope**
+
+- Callbacks and webhooks, which go with WebSocket and SSE (Phase 6).
+- Body generation from schemas (`body: generate`), which needs Phase 2.
+- A reset endpoint, which comes with the control API (Phase 8). Until then, restarting the server or editing a data file resets state.
+
+**Done when** the Flutter example can sign in (a rule on the password), see a list whose names come from `fake.person.name`, add an item to a CRUD cart and see it in the next GET, and get a reset connection from a `fault: reset` state. All of this runs in widget tests with a fixed seed.
+
+### Flows
+
+**A state picked by the request.**
+
+```yaml
+get:
+  route: GET /users/{id}
+  mode: rules
+  rules:
+    - when: { path.id: u_404 }
+      state: not_found
+    - when: { header.authorization: { exists: false } }
+      state: unauthorized
+  states:
+    found:
+      body: { id: "{{ path.id }}", name: "{{ fake.person.name }}", joined: "{{ fake.date.past }}" }
+    not_found: { status: 404, body: { error: user not found } }
+    unauthorized: { status: 401 }
+```
+
+When no rule matches, the active state is served. An explicit `X-Mock-State` or `?__state=` still wins over everything, so app tests stay in control.
+
+**A flow with memory.**
+
+```yaml
+login:
+  route: POST /session
+  mode: rules
+  rules:
+    - when: { body.password: { ne: secret } }
+      state: wrong_password
+  states:
+    ok: { set: { signed_in: true }, body: { token: "{{ uuid }}" } }
+    wrong_password: { status: 401 }
+me:
+  route: GET /me
+  mode: rules
+  rules:
+    - when: { var.signed_in: { exists: false } }
+      state: signed_out
+  states:
+    ok: { body: { name: "{{ fake.person.name }}" } }
+    signed_out: { status: 401 }
+```
+
+**A full collection.**
+
+```yaml
+items:
+  route: CRUD /cart/items
+  crud: { collection: cart_items }
+  states:
+    ok: {}
+    down: { status: 503, body: { error: unavailable } }
+```
+
+| Request | Does |
+| --- | --- |
+| `GET /cart/items` | The list |
+| `GET /cart/items/{id}` | One item, or 404 |
+| `POST /cart/items` | Adds the item, gives it an `id` if it has none, and returns it with 201 |
+| `PUT` / `PATCH /cart/items/{id}` | Replaces it, or merges the fields given |
+| `DELETE /cart/items/{id}` | Removes it and returns 204 |
+
+The collection starts from `data/cart_items.json` (a JSON array) when there is one. A state with no fields means "behave as CRUD"; any other state, chosen by header, rule or `active`, answers as usual. So `X-Mock-State: down` still tests the error screen.
+
+### Decisions
+
+| # | Question | Decision | Why |
+| --- | --- | --- | --- |
+| P5-1 | Template syntax | `{{ selector }}` using the rule selectors (`path.id`, `query.page`, `header.x`, `body.a.b`, `var.x`, `call`), plus generators (`fake.*`, `uuid`, `now`, `now.unix`, `random.int 1 100`). No logic or loops | One vocabulary for rules and templates. Small enough to parse by hand and give file:line errors for. Logic belongs in rules and states |
+| P5-2 | Where templates run | Only inside JSON string values and header values, never on raw bytes. A string that is exactly one `{{ }}` that yields a number or bool becomes that type | Escaping can't be got wrong, so no broken JSON. `"{{ random.int 1 5 }}"` can still be a number |
+| P5-3 | Fake data source | Built-in word lists (names, emails, phones, cities, companies, words, dates) for `en` and `en_NG`. No dependency | A few hundred lines of data. Deterministic per seed, with no large dependency and no license review |
+| P5-4 | Determinism | `internal/seed`: PCG from `math/rand/v2`, seeded from `seed` (0 = random, logged). Each request derives its own stream from the seed, the route and that route's call number | Same seed, same requests, same answers, even when requests run concurrently |
+| P5-5 | `sequential` and `random` modes | `sequential` serves the states in order and stays on the last. `random` picks one from the seeded stream | Matches how people test retries ("fail twice, then succeed") and chaos |
+| P5-6 | Precedence | Explicit state (header, query) > mode (rules, sequential, random) > `active` | Tests must always be able to force a state |
+| P5-7 | Faults over HTTP | `timeout`: hold the request without answering until the client gives up (the client's deadline, or 5 minutes at most). `reset`: hijack the connection and close it with SO_LINGER 0, so the client sees a reset. `truncated`: announce the full Content-Length, send half the body, then close | These are the three failures apps most often handle badly. `rate` is a 0–1 probability from the seeded stream; `after` delays the fault |
+| P5-8 | Variables and call counts | Kept in memory per server, shared by all routes. Route reloads keep them; restarting clears them | Flows survive editing a file mid-test. Phase 8's control API adds a reset |
+| P5-9 | CRUD storage | In memory, seeded from `data/<collection>.json`. Edits to that file reset the collection. Ids: `idField` (default `id`); a missing id becomes a random `uuid` string | Predictable, and needs no database. Editing the file is the reset button until Phase 8 |
+| P5-10 | `proxy` in `config.yaml` | Stays the plain URL string Phase 3 shipped, not the spec's `{ target, enabled }` | It already shipped, and a URL alone is simpler. Recorded here as a deliberate change from the spec |
+
+### Lint
+
+New errors, each with file and line:
+- a rule's `state` that doesn't exist, with "did you mean";
+- `mode: rules` without `rules`, or `rules` with another mode (rules alone imply `mode: rules`);
+- an unknown selector scope or matcher;
+- an operator mapping with more than one operator;
+- an invalid regex in `matches`;
+- a `path.x` that isn't a parameter of the route;
+- a template that doesn't parse, or names an unknown generator;
+- an unknown fault type, or a `rate` outside (0, 1];
+- `seed` or `locale` out of range;
+- a CRUD route without `crud`;
+- `crud.collection` naming a data file that isn't a JSON array.
+
+New warning: a rule that can never match because an earlier rule with the same `when` catches it first.
+
+### Build order
+
+Vertical slices. Each one ships working on its own.
+
+| # | Task | Needs | Size | Done when | Status |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `internal/seed`; `seed`, `locale` in config; `--seed`; seed logged at start | – | S | Same seed gives the same stream; seed 0 logs the one it picked | Done |
+| 2 | Rules: loader for `mode`, `rules`, `when` (selectors, matchers, regex compiled at load); lint | – | M | Every selector and matcher has a load test and a problem test | Done. Change: `rules` without `mode` implies `mode: rules` instead of being an error |
+| 3 | Rules in the server: request facts (path, query, header, cookie, JSON body), precedence, log shows `(rule 2)` | 2 | M | Table test over every matcher; explicit state beats rules | Done: `internal/match` (fuzzed), call counts kept across reloads, log shows `(rule N)` |
+| 4 | `sequential` and `random` modes; `call` | 1, 3 | S | Order and seeded picks are deterministic | Done |
+| 5 | Templates: parser, `{{ }}` in JSON strings and headers, typed single expressions, request selectors, `uuid`, `now`, `random.int`; `template: false` | 1 | M | Golden bodies; broken templates fail lint with file:line | Done |
+| 6 | Fake data: `fake.*` generators, `en` and `en_NG` | 1, 5 | M | Every generator is deterministic per seed; lint lists the generators | Done |
+| 7 | `latency: { base, jitter }` | 1 | S | Seeded jitter stays within base ± jitter (synctest) | Done |
+| 8 | Faults: `timeout`, `reset`, `truncated`, `rate`, `after` | 1 | M | A real client sees a reset, a cut body and a timeout; rate ≈ p over 10,000 seeded requests | Done |
+| 9 | `set` and `var`; variables shared and kept across reloads | 3, 5 | S | Login → me flow test | Done |
+| 10 | CRUD: `route: CRUD`, collection from `data/`, ids, all five operations, states still win | 5 | L | Table test for every operation; data file edit resets it | Done; `crud` is optional (collection from the path, id field `id`) |
+| 11 | MCP tools and `get_route` show modes, rules and faults; `diff` reports rule and mode changes | 2–10 | S | Goldens updated | Done |
+| 12 | Exit tests, Flutter example flow, docs (`docs/behaviour.md`), schema, changelog | all | M | Exit criteria pass on three OSes | Done: `TestExitPhase5_Flow` (golden transcript, seed 42), `TestExitPhase5_Faults`, Flutter sign-in, cart and checkout tests, docs in file-format.md |
+
+Tasks 2–4 can start without 1 if `random` waits. Tasks 7 and 8 are independent of rules and templates.
+
+### Tests, exit criteria and risks
+
+**Tests**
+
+| Kind | What it proves |
+| --- | --- |
+| Matcher table | Every matcher against strings, numbers, missing values and bad types |
+| Precedence | Header > query > rules or mode > active, for every mode |
+| Template goldens | Request echo, typed values, escaping of quotes and newlines, `template: false` |
+| Determinism | Same seed and same requests give the same bodies, concurrently too (`-race`) |
+| Fault behaviour | Real `net/http` clients see `ECONNRESET`, `unexpected EOF` and a deadline |
+| CRUD table | Each operation on an empty, a seeded and a missing item; ids; PATCH merges; 404s |
+| Fuzzing | The template parser and rule matcher never panic on any input |
+
+**Exit criteria as automated tests**
+
+- `TestExitPhase5_Flow`: sign in with a wrong password (401), then the right one, then `GET /me` (200 with a fake name); add to a CRUD cart and list it, with seed 42 and golden bodies.
+- `TestExitPhase5_Faults`: a `reset` state gives the client a connection reset, and a `truncated` state gives an unexpected EOF.
+- The Flutter example's widget tests cover sign-in and the cart.
+
+**Risks**
+
+| Risk | Effect | Mitigation |
+| --- | --- | --- |
+| Templates grow into a language | Hard to read and lint | No logic in templates (P5-1); behaviour lives in rules and states |
+| Faults behave differently per OS | Flaky tests on Windows | Exit tests check the client-side error class, not the message |
+| Randomness makes tests flaky | Teams stop trusting the mock | Seeded everywhere (P5-4); seed logged; `--seed` to replay |
+| CRUD state confuses a team sharing one mock | "Who deleted my item?" | Documented as per-server; data file edit resets it; Phase 8 adds a reset endpoint |
+| Rules slow every request | Latency | Matchers compiled at load; request body read once, at most 1 MiB, only when a rule or template uses `body.*` |
+
+**Answered (2026-10-07):** template syntax uses rule selectors (P5-1); fake data comes from built-in `en` and `en_NG` lists (P5-3); CRUD data stays in memory (P5-9).
+
+## Phase 7: Packaging and a terminal UI (v0.7)
+
+### Goal and scope
+
+People get MockMachina without a Go toolchain, run it where they already run things (a container, a phone that needs HTTPS), and control it from one screen. After this phase:
+- a release is a git tag that builds everything;
+- Docker users have an image;
+- iOS and Android apps can talk to the mock over trusted HTTPS;
+- the terminal shows routes, states and requests live, and switches states with a key.
+
+**In scope**
+
+- **Releases:** a GitHub Actions workflow on `mock_machina/v*` tags, built with GoReleaser:
+  - binaries for macOS, Linux and Windows on amd64 and arm64;
+  - checksums and an SBOM;
+  - the version stamped into `--version`;
+  - an install script for macOS and Linux.
+- **Docker:** a multi-arch image on `ghcr.io/demola234/mockmachina`. It's static and non-root, serves `/mock/.mockmachina` on `0.0.0.0:4001`, and polls for changes, since file events don't cross bind mounts.
+- **HTTPS:** `start --https` serves TLS with a certificate from a local CA that MockMachina creates once. The certificate is valid for `localhost`, `127.0.0.1`, the machine's LAN addresses and the emulator aliases. `mockmachina cert` prints or installs the CA, with steps for iOS, Android and desktop. `--tls-cert` and `--tls-key` use your own certificate instead.
+- **Terminal UI:** a full-screen view of the running mock. Details below.
+- Docs: install, Docker and HTTPS pages; the mobile setup page gains HTTPS.
+
+**Out of scope**
+
+- **Package-manager publishing beyond what's chosen below:** each channel needs its own repository or account.
+- **Signing binaries for macOS and Windows:** needs paid certificates. Revisit when there are users.
+- **Editing routes in the UI:** states are switched, not edited. Editing stays in files, the editor and MCP.
+
+**Done when:**
+- a tag on a fork produces binaries, checksums and an image;
+- `docker run -v $PWD/.mockmachina:/mock/.mockmachina -p 4001:4001 ghcr.io/demola234/mockmachina` serves the example project;
+- the Flutter example passes over HTTPS on the iOS Simulator after `mockmachina cert --install`;
+- the UI switches a state, and the next request gets it.
+
+### The terminal UI
+
+```text
+┌ mockmachina · shop · http://127.0.0.1:4001 · seed 42 ───────────────────────┐
+│ Routes                         │ Requests                                    │
+│ ▸ users.list  GET /users       │ 12:01:03  GET  /users        200  success   │
+│     ● success  200             │ 12:01:05  GET  /users/u_404  404  rule 1    │
+│     ○ empty    200             │ 12:01:09  POST /session      400  invalid   │
+│     ○ unauthorized 401         │                                              │
+│   users.get   GET /users/{id}  │                                              │
+│   session.create POST /session │                                              │
+├────────────────────────────────┴────────────────────────────────────────────┤
+│ ↑↓ move · enter set default state · / filter · r reload · l lint · q quit   │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Part | Does |
+| --- | --- |
+| Routes | Every route, with its states. The active state is marked. `enter` makes the selected state the default, through `state set`, so the file changes as it does from the CLI |
+| Requests | The live log, newest last. Selecting a request shows its status, state, rule, latency and the first lines of the body |
+| Header | Project, address, seed and proxy target |
+| Problems | Reload errors and lint warnings appear in a bar; `l` lists them |
+
+It's the same server as `start`, with the same flags. Only the screen differs.
+
+### Decisions
+
+| # | Question | Decision | Why |
+| --- | --- | --- | --- |
+| P7-1 | UI library | Bubble Tea v2, pinned to 2.0.9, the last release on Go 1.25 (2.0.10 needs Go 1.26). Lip Gloss is already in through Fang | Charm's stack is what Fang uses. Pinned, as `x/text` was, so the Go floor holds |
+| P7-2 | UI architecture | `internal/tui` gets the project, a request stream and a `SetActive` function. It doesn't know about HTTP. Its tests drive the model with messages and compare rendered frames to goldens | Testable without a terminal; the server stays unaware of the UI |
+| P7-3 | Release tooling | A small tested tool in the module (`tools/release`, logic in `internal/release`): cross-compile, archive, checksums, Homebrew formula, Scoop manifest, release notes from the changelog. The workflow uploads to the `mock_machina/vX.Y.Z` release | GoReleaser's open-source edition can't use monorepo tag prefixes (a Pro feature) and would create plain `vX.Y.Z` tags that collide with other projects in the repository |
+| P7-4 | Local CA | Created on first `--https`, stored in the user config folder (`os.UserConfigDir()/mockmachina/ca`), ECDSA P-256, 10 years for the CA and 397 days for leaf certificates (the browser limit). Leaf certificates are made per start for the current addresses | Same approach as mkcert. Nothing secret lives in the repository |
+| P7-5 | HTTPS and HTTP together | `--https` serves TLS only, on the same port. Mobile config switches the scheme | Two ports confuse people more than they help |
+| P7-6 | Docker defaults | The image sets the host to `0.0.0.0`, the directory to `/mock/.mockmachina` and polling at 500 ms. Runs as UID 65532 (distroless nonroot) | Works with `-v` and `-p` and nothing else |
+
+**Answered (2026-10-08):** `mockmachina tui` as its own command (P7-UI); `--https` with a local CA plus `--tls-cert/--tls-key`; publish to GitHub Releases, ghcr.io, a Homebrew tap (`demola234/homebrew-tap`) and a Scoop bucket (`demola234/scoop-bucket`). The tap and bucket steps run only when their token secrets are set.
+
+### Build order
+
+| # | Task | Done when | Status |
+| --- | --- | --- | --- |
+| 1 | `internal/release`: cross-compile, archives, checksums, formula and manifest rendering, notes from the changelog; `tools/release`; `just release-dry` | A dry run builds 6 archives, checksums, formula and manifest locally | Done; own tool because GoReleaser OSS has no monorepo tag prefixes; archives are reproducible |
+| 2 | Release workflow on `mock_machina/v*` tags, with SBOM; install script | Workflow lints with actionlint; install script tested against a local archive | Done; install script tested against an httptest server, refuses a checksum mismatch |
+| 3 | Dockerfile (multi-stage, distroless static, non-root) and image publishing in the release workflow | `docker run` on the example serves `/users` | Done; built and run under Colima (arm64, 29.8 MB, UID 65532): serves the storefront example, `state set` in the container and edits on the host apply live, `lint` runs read-only. Multi-arch push is checked on the first release |
+| 4 | `internal/certs`: local CA, leaf certificates, storage, tests | Leaf verifies against the CA for every requested name | Done |
+| 5 | `start --https`, `--tls-cert/--tls-key`, `mockmachina cert` (print, `--install`) | An HTTPS client trusting the CA gets `/users` | Done; `runStart` split into `openSession` and `session.run` so the UI can reuse it |
+| 6 | `internal/tui` model: routes pane, states, requests pane, keys | Frame goldens for each view; key handling tests | Done. Styled with Lip Gloss (light and dark palettes from the terminal background) and animated from one clock: breathing live dot, request-rate sparkline, new requests flash and fade, spinner then ✓ toast on a state switch, pop on the new active state, blinking filter cursor. Ticks every 50 ms while something moves, 200 ms otherwise. Layout goldens are ANSI-stripped; one colored golden locks the look. Request details show method, path, status, route:state and note (latency and body would need the server to report them) |
+| 7 | Wire the UI into the server: request stream, state switching, reload and problems | Switching a state in the UI changes the next response (test) | Done: `mockmachina tui` shares start's flags and session; Enter calls `config.SetActive`, reloads and problems stream to the screen; end-to-end test switches a state through the keyboard and checks the next response. Later: `start` opens the screen in a terminal (`--plain` for log lines), a welcome card, and a command launcher for bare `mockmachina` |
+| 8 | Docs: install, Docker, HTTPS; mobile setup over HTTPS; changelog | Pages exist and examples run | Done: docs/install.md (Homebrew, Scoop, script, Go, Docker and Compose), docs/https.md (local CA, every device, Flutter on Android, Docker, removal, troubleshooting), HTTPS in mobile setup, quickstart, README, changelog |

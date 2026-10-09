@@ -1,0 +1,1 @@
+claude mcp add mockmachina -- EXE mcp --dir DIR

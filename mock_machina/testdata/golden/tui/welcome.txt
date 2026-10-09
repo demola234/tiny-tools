@@ -1,0 +1,15 @@
+╭─ MockMachina v0.7.0 ─────────────────────────────────────────────────────────────────────────────╮
+│                                      │                                                           │
+│             Serving shop             │ Try it                                                    │
+│                                      │ curl http://127.0.0.1:4001/users  call a route            │
+│                  ▄                   │ mockmachina state set users.list empty  serve another st… │
+│                ▄███▄                 │ mockmachina tui  live routes and requests                 │
+│               █ ███ █                │ ───────────────────────────────────────────────────────── │
+│               ███████                │ Notes                                                     │
+│                ▀▀ ▀▀                 │ seed 42 (start with --seed 42 to get the same responses … │
+│                                      │                                                           │
+│               3 routes               │                                                           │
+│        http://127.0.0.1:4001         │                                                           │
+│       ~/code/shop/.mockmachina       │                                                           │
+│                                      │                                                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

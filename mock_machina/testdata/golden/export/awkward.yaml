@@ -1,0 +1,250 @@
+openapi: 3.1.0
+info:
+  title: Awkward shop
+  version: 1.0.0
+paths:
+  /v1/categories/{id}/tree:
+    get:
+      operationId: tree.list
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+              examples:
+                success:
+                  x-mockmachina:
+                    generate: true
+  /v1/orders:
+    get:
+      operationId: orders.list
+      summary: List orders
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - open
+              - closed
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderList'
+              examples:
+                some_orders:
+                  value:
+                    orders:
+                      - id: o_1
+                        total: 12.5
+                        note: null
+                        lines: []
+                    next: 2
+                  x-mockmachina: {}
+                no_orders:
+                  value:
+                    orders: []
+                    next: null
+                  x-mockmachina: {}
+        default:
+          description: Default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                server_error:
+                  x-mockmachina:
+                    generate: true
+                    status: 500
+    post:
+      operationId: orders.create
+      summary: Create an order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lines
+              properties:
+                lines:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/Line'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              examples:
+                created:
+                  x-mockmachina:
+                    generate: true
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                invalid:
+                  value:
+                    error: cart is empty
+                  x-mockmachina: {}
+  /v1/orders/{orderId}:
+    get:
+      operationId: orders.get
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^o_
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              examples:
+                success:
+                  x-mockmachina:
+                    generate: true
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                not_found:
+                  x-mockmachina:
+                    generate: true
+    delete:
+      operationId: orders.delete
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^o_
+      responses:
+        "204":
+          description: No Content
+          content:
+            application/json:
+              examples:
+                no_content:
+                  x-mockmachina: {}
+components:
+  schemas:
+    Card:
+      type: object
+      required:
+        - last4
+      properties:
+        last4:
+          type: string
+          pattern: ^[0-9]{4}$
+          example: "4242"
+    Category:
+      type: object
+      required:
+        - name
+        - children
+      properties:
+        name:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+    Line:
+      type: object
+      required:
+        - sku
+        - qty
+      properties:
+        sku:
+          type: string
+        qty:
+          type: integer
+          minimum: 1
+    Order:
+      type: object
+      required:
+        - id
+        - total
+        - lines
+      properties:
+        id:
+          type: string
+          pattern: ^o_
+        total:
+          type: number
+          minimum: 0
+        note:
+          type:
+            - string
+            - "null"
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/Line'
+        payment:
+          oneOf:
+            - $ref: '#/components/schemas/Card'
+            - type: object
+              required:
+                - iban
+              properties:
+                iban:
+                  type: string
+    OrderList:
+      allOf:
+        - type: object
+          required:
+            - orders
+          properties:
+            orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/Order'
+        - type: object
+          required:
+            - next
+          properties:
+            next:
+              type:
+                - integer
+                - "null"
+    Problem:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

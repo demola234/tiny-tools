@@ -1,0 +1,30 @@
+{
+  "active": "created",
+  "file": "routes/users.yaml",
+  "id": "users.create",
+  "line": 13,
+  "method": "POST",
+  "mode": "active",
+  "path": "/users",
+  "request": {
+    "body": "User"
+  },
+  "responses": [
+    {
+      "schema": "User",
+      "status": "201"
+    }
+  ],
+  "states": [
+    {
+      "body": {
+        "id": "u_2"
+      },
+      "contentType": "application/json",
+      "line": 18,
+      "name": "created",
+      "status": 201
+    }
+  ],
+  "status": "draft"
+}

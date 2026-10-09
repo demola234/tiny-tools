@@ -1,0 +1,42 @@
+name: MockMachina contract check
+description: Lint the mock API contract, and flag breaking changes on pull requests with annotations and a comment
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  dir:
+    description: The project folder, relative to the repository root
+    default: .mockmachina
+  override-label:
+    description: A pull request with this label passes even with breaking changes
+    default: breaking-change
+  comment:
+    description: Post the report as a pull request comment, updated on every push
+    default: "true"
+  github-token:
+    description: Token for commenting; needs pull-requests write permission
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache: false
+    - shell: bash
+      run: go build -C "$GITHUB_ACTION_PATH" -o "$RUNNER_TEMP/mockmachina" ./cmd/mockmachina
+    - shell: bash
+      env:
+        MOCKMACHINA: ${{ runner.temp }}/mockmachina
+        DIR: ${{ inputs.dir }}
+        BASE_REF: ${{ github.base_ref }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        OVERRIDE_LABEL: ${{ inputs.override-label }}
+        COMMENT: ${{ inputs.comment }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        if [ -n "$BASE_REF" ]; then git fetch --no-tags --quiet origin "$BASE_REF"; fi
+        "$GITHUB_ACTION_PATH/action/run.sh"

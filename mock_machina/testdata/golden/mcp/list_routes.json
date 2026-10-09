@@ -1,0 +1,58 @@
+{
+  "routes": [
+    {
+      "active": "up",
+      "file": "routes/health.yaml",
+      "id": "health.get",
+      "line": 1,
+      "method": "GET",
+      "path": "/health",
+      "states": [
+        {
+          "name": "up",
+          "status": 200
+        }
+      ],
+      "status": "agreed"
+    },
+    {
+      "active": "not_found",
+      "file": "routes/users.yaml",
+      "id": "users.get",
+      "line": 12,
+      "method": "GET",
+      "path": "/users/{id}",
+      "states": [
+        {
+          "name": "found",
+          "status": 200
+        },
+        {
+          "name": "not_found",
+          "status": 404
+        }
+      ],
+      "status": "draft"
+    },
+    {
+      "active": "success",
+      "file": "routes/users.yaml",
+      "id": "users.list",
+      "line": 3,
+      "method": "GET",
+      "path": "/users",
+      "states": [
+        {
+          "name": "success",
+          "status": 200
+        },
+        {
+          "name": "empty",
+          "status": 200
+        }
+      ],
+      "status": "draft",
+      "summary": "List users"
+    }
+  ]
+}

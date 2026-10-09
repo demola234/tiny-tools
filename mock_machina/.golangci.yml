@@ -47,10 +47,15 @@ linters:
             - pkg: github.com/stretchr/testify
               desc: use the standard library and go-cmp (engineering.md §10)
         yaml-only-in-config:
-          files: ["$all", "!**/internal/config/**"]
+          files: ["$all", "!**/internal/config/**", "!**/internal/openapi/**"]
           deny:
             - pkg: go.yaml.in/yaml
-              desc: only internal/config reads or writes YAML
+              desc: only internal/config reads or writes project YAML; internal/openapi reads specs
+        mcp-sdk-only-in-mcp:
+          files: ["$all", "!**/internal/mcp/**"]
+          deny:
+            - pkg: github.com/modelcontextprotocol/go-sdk
+              desc: only internal/mcp speaks the Model Context Protocol
         fang-only-in-run:
           files: ["$all", "!**/internal/cli/run.go"]
           deny:
@@ -80,6 +85,8 @@ linters:
         - G306 #   shared source files in git (engineering.md §9)
     misspell:
       locale: US
+      ignore-rules:
+        - cancelled # gRPC's code name CANCELLED is spelled this way
     nolintlint:
       require-explanation: true
       require-specific: true
@@ -96,13 +103,13 @@ linters:
   exclusions:
     presets: [std-error-handling, common-false-positives]
     rules:
-      - path: cmd/mockmachina/main\.go
+      - path: (cmd/mockmachina|tools/release)/main\.go
         linters: [forbidigo]
         text: "os\\.(Exit|Getwd)"
       - path: internal/clock/
         linters: [forbidigo]
         text: "time\\."
-      - path: internal/cli/find\.go
+      - path: internal/cli/(find|import|lint)\.go
         linters: [forbidigo]
         text: "os\\.Getwd"
       - path: internal/cli/script_test\.go
@@ -113,6 +120,20 @@ linters:
       - path: internal/testkit/path\.go
         linters: [forbidigo]
         text: "os\\.Getwd"
+      # Inside a testing/synctest bubble, time is simulated.
+      - path: _test\.go
+        linters: [forbidigo]
+        text: "time\\.(Now|Since|AfterFunc)"
+      # Tests read and write files in t.TempDir() and testdata by design.
+      - path: _test\.go
+        linters: [gosec]
+      # Cobra commands read their context from cmd.Context(), set by ExecuteContext.
+      - path: internal/cli/
+        linters: [contextcheck]
+      # A mock server writes the project's own body files by design.
+      - path: internal/server/
+        linters: [gosec]
+        text: "G705"
 
 formatters:
   enable: [gofumpt, goimports]

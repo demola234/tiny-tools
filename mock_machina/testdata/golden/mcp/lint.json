@@ -1,0 +1,42 @@
+{
+  "errors": 1,
+  "problems": [
+    {
+      "file": "routes/orders.yaml",
+      "line": 1,
+      "message": "orders.list has no summary; add one line saying what it returns",
+      "severity": "warning"
+    },
+    {
+      "file": "routes/orders.yaml",
+      "line": 1,
+      "message": "orders.list has no 4xx or 5xx state; apps can't test errors",
+      "severity": "warning"
+    },
+    {
+      "file": "routes/orders.yaml",
+      "line": 1,
+      "message": "orders.list has no owners; reviews can't be routed",
+      "severity": "warning"
+    },
+    {
+      "file": "routes/orders.yaml",
+      "line": 2,
+      "message": "method \"get\" must be uppercase: GET",
+      "severity": "error"
+    },
+    {
+      "file": "routes/users.yaml",
+      "line": 3,
+      "message": "users.list has no 4xx or 5xx state; apps can't test errors",
+      "severity": "warning"
+    },
+    {
+      "file": "routes/users.yaml",
+      "line": 12,
+      "message": "users.get has no summary; add one line saying what it returns",
+      "severity": "warning"
+    }
+  ],
+  "warnings": 5
+}

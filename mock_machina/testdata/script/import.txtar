@@ -1,0 +1,103 @@
+exec mockmachina import shop.yaml
+cmp stdout want-stdout
+! stderr .
+exists .mockmachina/routes/orders.yaml
+exists .mockmachina/schemas/api.yaml
+exec mockmachina lint
+stdout 'warning'
+
+exec mockmachina import shop.yaml
+stdout '^already up to date$'
+
+exec mockmachina import shop-v2.yaml
+stdout '^added orders.get$'
+stdout '^updated orders.list$'
+stdout '^added state orders.list.server_error$'
+stdout '^not in the spec, kept: orders.create$'
+stdout '^wrote routes/orders.yaml$'
+exec mockmachina lint
+
+exec mockmachina import shop.yaml --dir fresh/.mockmachina --dry-run
+stdout '^would write routes/orders.yaml$'
+! exists fresh/.mockmachina/routes/orders.yaml
+
+! exec mockmachina import nope.yaml
+stderr 'can.t read nope.yaml'
+
+! exec mockmachina import notes.txt
+stderr 'notes.txt isn.t valid YAML or JSON|notes.txt isn.t an OpenAPI or Swagger document'
+
+-- notes.txt --
+just: [some notes
+-- shop.yaml --
+openapi: 3.1.0
+info: { title: Shop, version: "1" }
+paths:
+  /orders:
+    get:
+      summary: List orders
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Orders" }
+              example: { orders: [{ id: o_1 }] }
+    post:
+      parameters:
+        - { name: session, in: cookie, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [sku], properties: { sku: { type: string } } }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { type: object, properties: { id: { type: string } } }
+components:
+  schemas:
+    Orders:
+      type: object
+      properties:
+        orders: { type: array, items: { type: object, properties: { id: { type: string } } } }
+-- shop-v2.yaml --
+openapi: 3.1.0
+info: { title: Shop, version: "2" }
+paths:
+  /orders:
+    get:
+      summary: List orders
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Orders" }
+              example: { orders: [{ id: o_1 }] }
+        "500":
+          description: broken
+          content:
+            application/json:
+              schema: { type: object }
+  /orders/{id}:
+    get:
+      responses:
+        "200":
+          description: one
+          content:
+            application/json:
+              schema: { type: object, properties: { id: { type: string } } }
+components:
+  schemas:
+    Orders:
+      type: object
+      properties:
+        orders: { type: array, items: { type: object, properties: { id: { type: string } } } }
+-- want-stdout --
+read OpenAPI 3.1.0 "Shop": 2 routes, 2 states (1 from examples, 1 generated from schemas), 1 schema
+wrote routes/orders.yaml
+wrote schemas/api.yaml
+note: orders.create: cookie parameter "session" isn't checked
+next: mockmachina lint, then mockmachina start

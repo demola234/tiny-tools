@@ -1,0 +1,43 @@
+{
+  "active": "not_found",
+  "examples": {
+    "id": "u_1"
+  },
+  "file": "routes/users.yaml",
+  "id": "users.get",
+  "line": 12,
+  "method": "GET",
+  "mode": "active",
+  "owners": {
+    "backend": [
+      "ademola"
+    ]
+  },
+  "path": "/users/{id}",
+  "states": [
+    {
+      "body": {
+        "id": "u_1",
+        "name": "Ada"
+      },
+      "contentType": "application/json",
+      "headers": {
+        "X-Trace": "abc"
+      },
+      "latency": "200ms",
+      "line": 17,
+      "name": "found",
+      "status": 200
+    },
+    {
+      "body": {
+        "error": "user not found"
+      },
+      "contentType": "application/json",
+      "line": 21,
+      "name": "not_found",
+      "status": 404
+    }
+  ],
+  "status": "draft"
+}

@@ -74,3 +74,25 @@ func execute(t *testing.T, args ...string) (string, error) {
 	err := cmd.ExecuteContext(t.Context())
 	return out.String(), err
 }
+
+func TestUnknownCommand_SuggestsTheClosest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"starrt"}, `(did you mean "start"?)`},
+		{[]string{"lnt"}, `(did you mean "lint"?)`},
+		{[]string{"state", "sett", "a", "b"}, `(did you mean "set"?)`},
+	}
+	for _, tc := range tests {
+		_, err := execute(t, tc.args...)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("mockmachina %s: error = %v, want it to contain %q", strings.Join(tc.args, " "), err, tc.want)
+		}
+	}
+	if _, err := execute(t, "zzzzzz"); err == nil || strings.Contains(err.Error(), "did you mean") {
+		t.Errorf("error for an unrelated word = %v, want no suggestion", err)
+	}
+}

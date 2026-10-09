@@ -1,0 +1,22 @@
+ ● MockMachina v0.7.0  pick a command, or run mockmachina <command> --help      
+╭─ start ──────────────────────────────────────────────────────────────────────╮
+│ Serve the mock API                                                           │
+│                                                                              │
+│ ▸ Folder   nearest .mockmachina                                              │
+│   Port    4001                                                               │
+│   HTTPS   ○ off                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ $ mockmachina start                                                            
+ ↑↓ field · ←→ choose · space toggle · ⏎ run · esc back                         

@@ -1,0 +1,18 @@
+GET /me
+  → 401
+POST /session {"email":"ada@example.com","password":"nope"}
+  → 401 {"error":"wrong password"}
+POST /session {"email":"ada@example.com","password":"secret"}
+  → 201 {"token":"3d0d026e-4f4a-43ef-98c2-6143587168f6"}
+GET /me
+  → 200 {"email":"ada@example.com","name":"Yusuf Balogun","city":"Ibadan"}
+GET /cart/items
+  → 200 [{"id":"i_1","sku":"tea","qty":1}]
+POST /cart/items {"sku":"bread","qty":2}
+  → 201 {"id":"e0dc7ce9-5d97-4388-8e72-de3b4e4308f2","sku":"bread","qty":2}
+PATCH /cart/items/i_1 {"qty":3}
+  → 200 {"id":"i_1","sku":"tea","qty":3}
+GET /cart/items
+  → 200 [{"id":"i_1","sku":"tea","qty":3},{"id":"e0dc7ce9-5d97-4388-8e72-de3b4e4308f2","sku":"bread","qty":2}]
+GET /cart/items?__state=down
+  → 503 {"error":"unavailable"}

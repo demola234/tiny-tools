@@ -1,0 +1,76 @@
+owners: { backend: [ademola], frontend: [ada] }
+
+list:
+  route: GET /users
+  summary: List users, newest first
+  active: slow
+  states:
+    success:
+      body: users.json
+    empty:
+      body: { users: [], nextPage: null }
+    slow:
+      latency: 2s
+      body: users.json
+    unauthorized:
+      status: 401
+      headers: { WWW-Authenticate: Bearer }
+      body: { error: session expired }
+    server_error:
+      status: 500
+      body: { error: something went wrong }
+
+get:
+  route: GET /users/{id}
+  examples: { id: u_1 }
+  summary: One user by id
+  active: found
+  states:
+    found:
+      body: { id: u_1, name: Ada Obi, email: ada@example.com }
+    not_found:
+      status: 404
+      body: { error: user not found }
+
+create:
+  route: POST /users
+  summary: Create a user
+  active: no_service
+  states:
+    created:
+      status: 201
+      headers: { Location: /users/u_3 }
+      body: { id: u_3, name: New User }
+    invalid:
+      status: 422
+      body: { error: email is required }
+    not_found:
+      status: 404
+      body: { error: user not found }
+    no_service:
+      status: 501
+      body: { error: internal server error}
+
+delete:
+  route: DELETE /users/{id}
+  examples: { id: u_1 }
+  summary: Delete a user
+  active: deleted
+  states:
+    deleted:
+      status: 204
+    not_found:
+      status: 404
+      body: { error: user not found }
+
+patch:
+  route: PATCH /users/{id}
+  examples: { id: u_1 }
+  summary: Update a user
+  active: update
+  states:
+    update:
+      status: 201
+    not_found:
+      status: 404
+      body: { error: user not found }

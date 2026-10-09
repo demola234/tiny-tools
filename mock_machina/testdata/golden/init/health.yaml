@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/demola234/tiny-tools/main/mock_machina/schema/route.schema.json
+get:
+  route: GET /health
+  summary: Is the API up?
+  states:
+    up:
+      body: { status: up }
+    down:
+      status: 503
+      body: { status: down }

@@ -26,7 +26,15 @@ func TestMain(m *testing.M) {
 
 func TestScripts(t *testing.T) {
 	t.Parallel()
+	action, err := filepath.Abs(filepath.Join("..", "..", "action", "run.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	testscript.Run(t, testscript.Params{
 		Dir: filepath.Join("..", "..", "testdata", "script"),
+		Setup: func(env *testscript.Env) error {
+			env.Setenv("ACTION_SH", action)
+			return nil
+		},
 	})
 }

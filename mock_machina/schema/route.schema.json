@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/demola234/tiny-tools/main/mock_machina/schema/route.schema.json",
+  "title": "MockMachina routes",
+  "description": "A file of routes in .mockmachina/routes/<resource>.yaml. Each top-level key is a route name; the route's id is <resource>.<name>, e.g. users.list.",
+  "type": "object",
+  "minProperties": 1,
+  "properties": {
+    "owners": {
+      "description": "Owners for every route in this file, unless a route sets its own.",
+      "$ref": "#/$defs/owners"
+    },
+    "status": {
+      "description": "Status for every route in this file, unless a route sets its own. Defaults to draft.",
+      "$ref": "#/$defs/status"
+    }
+  },
+  "patternProperties": { "^x-": { "description": "Kept as written." } },
+  "propertyNames": {
+    "anyOf": [
+      { "enum": ["owners", "status"] },
+      { "pattern": "^x-" },
+      { "pattern": "^[a-z0-9][a-z0-9-]*$" }
+    ]
+  },
+  "additionalProperties": { "$ref": "#/$defs/route" },
+  "$defs": {
+    "route": {
+      "description": "One route: the request it answers and the states it can respond with.",
+      "type": "object",
+      "required": ["route", "states"],
+      "properties": {
+        "route": {
+          "description": "Method and path, e.g. GET /users/{id}. Parameters are whole segments in braces. CRUD /things serves a whole in-memory collection: list, get, create, replace, update and delete.",
+          "type": "string",
+          "pattern": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CRUD) +/[^?#]*$"
+        },
+        "examples": {
+          "description": "Values for the path's parameters, used when checking a live API with mockmachina diff --live, e.g. { id: u_1 }.",
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "summary": {
+          "description": "One line saying what the route returns.",
+          "type": "string",
+          "pattern": "^[^\\n]*$"
+        },
+        "status": { "$ref": "#/$defs/status" },
+        "owners": { "$ref": "#/$defs/owners" },
+        "request": {
+          "description": "What the app must send. params, query and headers map names to schemas (add required: true to a query or header schema); body is a schema. A request that doesn't match gets a 400.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "params": { "type": "object", "additionalProperties": { "$ref": "#/$defs/schemaRef" } },
+            "query": { "type": "object", "additionalProperties": { "$ref": "#/$defs/schemaRef" } },
+            "headers": { "type": "object", "additionalProperties": { "$ref": "#/$defs/schemaRef" } },
+            "body": { "$ref": "#/$defs/schemaRef" }
+          }
+        },
+        "responses": {
+          "description": "The schema of each response, by status or default: a name from schemas/ or an inline schema. lint checks every state's body against it.",
+          "type": "object",
+          "propertyNames": { "pattern": "^([1-5][0-9][0-9]|default)$" },
+          "additionalProperties": { "$ref": "#/$defs/schemaRef" }
+        },
+        "active": {
+          "description": "The state served when a request doesn't ask for one with X-Mock-State or ?__state=. Defaults to the first state.",
+          "$ref": "#/$defs/stateName"
+        },
+        "mode": {
+          "description": "How the state is picked when a request doesn't ask for one: active (the active state), rules (the first rule whose conditions all match), sequential (each state in turn, staying on the last) or random. Defaults to rules when the route has rules, otherwise active.",
+          "enum": ["active", "rules", "sequential", "random"]
+        },
+        "rules": {
+          "description": "Checked in order; the first rule whose conditions all match picks the state. No match serves the active state.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when", "state"],
+            "additionalProperties": false,
+            "properties": {
+              "when": {
+                "description": "Selector to value, all of which must match: path.<param>, query.<name>, header.<name>, cookie.<name>, body.<a.b.0>, var.<name> or call.",
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": { "pattern": "^((path|query|header|cookie|body|var)\\..+|call)$" },
+                "additionalProperties": { "$ref": "#/$defs/matcher" }
+              },
+              "state": { "$ref": "#/$defs/stateName" }
+            }
+          }
+        },
+        "crud": {
+          "description": "For CRUD routes: the collection (default: the path's last segment), loaded from data/<collection>.json if it exists, and the id field (default id).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "collection": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+            "idField": { "type": "string" }
+          }
+        },
+        "serve": {
+          "description": "proxy sends this route's requests to the real backend (config.yaml proxy or --proxy), unless a request asks for a state. Defaults to mock.",
+          "enum": ["mock", "proxy"]
+        },
+        "generated": {
+          "description": "Set by AI assistants on routes they write. lint warns until a person reviews the route and deletes this line.",
+          "type": "boolean"
+        },
+        "states": {
+          "description": "The responses this route can give, by name, in the order you want them listed.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/stateName" },
+          "additionalProperties": { "$ref": "#/$defs/state" }
+        }
+      },
+      "patternProperties": { "^x-": { "description": "Kept as written and exported to OpenAPI." } },
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "Where the contract stands. Defaults to draft.",
+      "enum": ["draft", "agreed", "implemented", "deprecated"]
+    },
+    "schemaRef": {
+      "description": "A schema name from schemas/*.yaml, like UserList, or an inline JSON Schema (2020-12).",
+      "oneOf": [{ "type": "string" }, { "type": "object" }]
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+    },
+    "matcher": {
+      "description": "A plain value means equals. Or one operator: eq, ne, in, matches, exists, gt, gte, lt, lte.",
+      "oneOf": [
+        { "type": ["string", "number", "boolean", "null"] },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "eq": { "type": ["string", "number", "boolean", "null"] },
+            "ne": { "type": ["string", "number", "boolean", "null"] },
+            "in": { "type": "array", "items": { "type": ["string", "number", "boolean", "null"] } },
+            "matches": { "type": "string" },
+            "exists": { "type": "boolean" },
+            "gt": { "type": "number" },
+            "gte": { "type": "number" },
+            "lt": { "type": "number" },
+            "lte": { "type": "number" }
+          }
+        }
+      ]
+    },
+    "stateName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "not": { "enum": ["true", "false", "null", "yes", "no", "on", "off", "y", "n"] }
+    },
+    "owners": {
+      "description": "Who to ask about these routes, as GitHub handles.",
+      "type": "object",
+      "properties": {
+        "backend": { "$ref": "#/$defs/handles" },
+        "frontend": { "$ref": "#/$defs/handles" }
+      },
+      "additionalProperties": false
+    },
+    "handles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "state": {
+      "description": "One response. All fields are optional; an empty state is a 200 with no body.",
+      "type": ["object", "null"],
+      "properties": {
+        "status": {
+          "description": "HTTP status code. Defaults to 200.",
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "headers": {
+          "description": "Response headers, e.g. { Cache-Control: no-store }.",
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "body": {
+          "description": "A file in routes/<resource>/ (e.g. users.json), or inline YAML served as JSON.",
+          "type": ["string", "object", "array", "null"]
+        },
+        "latency": {
+          "description": "How long to wait before responding, e.g. 800ms or 2s, or { base: 2s, jitter: 500ms } to vary it by up to the jitter either way. At most 1m.",
+          "oneOf": [
+            { "$ref": "#/$defs/duration" },
+            {
+              "type": "object",
+              "required": ["base"],
+              "additionalProperties": false,
+              "properties": { "base": { "$ref": "#/$defs/duration" }, "jitter": { "$ref": "#/$defs/duration" } }
+            }
+          ]
+        },
+        "fault": {
+          "description": "Fail like a network does: timeout (never answer), reset (drop the connection) or truncated (send half the body). Or { type, rate, after } to fail only that fraction of requests, after a wait.",
+          "oneOf": [
+            { "enum": ["timeout", "reset", "truncated"] },
+            {
+              "type": "object",
+              "required": ["type"],
+              "additionalProperties": false,
+              "properties": {
+                "type": { "enum": ["timeout", "reset", "truncated"] },
+                "rate": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+                "after": { "$ref": "#/$defs/duration" }
+              }
+            }
+          ]
+        },
+        "set": {
+          "description": "Variables to store when this state is served, for rules (var.<name>) and templates ({{ var.<name> }}) on any route. null removes one. Values can be templates.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+          "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+        },
+        "validateRequest": {
+          "description": "false serves this state whatever the request looks like, even when the route has a request schema. For states that test how apps handle a server-side validation error. Defaults to true.",
+          "type": "boolean"
+        },
+        "template": {
+          "description": "false serves the body and headers exactly as written, without filling in {{ }} templates. Defaults to true.",
+          "type": "boolean"
+        },
+        "generated": {
+          "description": "Set by AI assistants on states they write. lint warns until a person reviews the state and deletes this line.",
+          "type": "boolean"
+        }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    }
+  }
+}

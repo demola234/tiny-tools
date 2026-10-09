@@ -1,0 +1,8 @@
+list:
+  route: GET /users
+  active: empt
+  states:
+    success:
+      body: { users: [] }
+    empty:
+      body: { users: [] }

@@ -1,0 +1,53 @@
+{
+  "active": "ok",
+  "file": "routes/pay.yaml",
+  "id": "pay.create",
+  "line": 1,
+  "method": "POST",
+  "mode": "rules",
+  "path": "/pay",
+  "rules": [
+    {
+      "state": "declined",
+      "when": [
+        {
+          "op": "gt",
+          "selector": "body.amount",
+          "value": 100
+        },
+        {
+          "op": "exists",
+          "selector": "header.x-test",
+          "value": true
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "body": {
+        "receipt": "{{ uuid }}"
+      },
+      "contentType": "application/json",
+      "jitter": "200ms",
+      "latency": "1s",
+      "line": 7,
+      "name": "ok",
+      "set": {
+        "paid": true
+      },
+      "status": 200
+    },
+    {
+      "fault": {
+        "after": "2s",
+        "rate": 0.5,
+        "type": "reset"
+      },
+      "line": 11,
+      "name": "declined",
+      "status": 402
+    }
+  ],
+  "status": "draft"
+}

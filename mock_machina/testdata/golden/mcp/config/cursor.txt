@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mockmachina": {
+      "command": "EXE",
+      "args": ["mcp", "--dir", "DIR"]
+    }
+  }
+}

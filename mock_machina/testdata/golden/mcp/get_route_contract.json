@@ -1,0 +1,77 @@
+{
+  "active": "found",
+  "file": "routes/users.yaml",
+  "id": "users.get",
+  "line": 1,
+  "method": "GET",
+  "mode": "active",
+  "path": "/users/{id}",
+  "request": {
+    "headers": [
+      {
+        "name": "Authorization",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "params": [
+      {
+        "name": "id",
+        "required": true,
+        "schema": {
+          "pattern": "^u_",
+          "type": "string"
+        }
+      }
+    ],
+    "query": [
+      {
+        "name": "expand",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    ]
+  },
+  "responses": [
+    {
+      "schema": "User",
+      "status": "200"
+    },
+    {
+      "schema": {
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "status": "404"
+    }
+  ],
+  "states": [
+    {
+      "body": {
+        "id": "string"
+      },
+      "contentType": "application/json",
+      "line": 11,
+      "name": "found",
+      "status": 200
+    },
+    {
+      "body": {
+        "error": "nope"
+      },
+      "contentType": "application/json",
+      "line": 12,
+      "name": "missing",
+      "status": 404
+    }
+  ],
+  "status": "draft"
+}

@@ -1,0 +1,71 @@
+exec mockmachina state set users.list empty
+stdout '^users.list: success → empty$'
+! stderr .
+cmp .mockmachina/routes/users.yaml want-list.yaml
+
+exec mockmachina state set users.list empty
+stdout '^users.list is already empty$'
+
+exec mockmachina state set users.get not_found
+stdout '^users.get: found → not_found$'
+cmp .mockmachina/routes/users.yaml want-both.yaml
+
+! exec mockmachina state set users.list emty
+! stdout .
+stderr 'route users.list has no state "emty" \(did you mean "empty"\?\)'
+
+! exec mockmachina state set users.lst empty
+stderr 'no route "users.lst" \(did you mean "users.list"\?\)'
+
+-- .mockmachina/routes/users.yaml --
+# Users, newest first.
+list:
+  route: GET /users
+  active: success # default for the app
+  states:
+    success:
+      body: { users: [{ id: u_1 }] }
+    empty:
+      body: { users: [] }
+
+get:
+  route: GET /users/{id}
+  states:
+    found: {}
+    not_found:
+      status: 404
+-- want-list.yaml --
+# Users, newest first.
+list:
+  route: GET /users
+  active: empty # default for the app
+  states:
+    success:
+      body: { users: [{ id: u_1 }] }
+    empty:
+      body: { users: [] }
+
+get:
+  route: GET /users/{id}
+  states:
+    found: {}
+    not_found:
+      status: 404
+-- want-both.yaml --
+# Users, newest first.
+list:
+  route: GET /users
+  active: empty # default for the app
+  states:
+    success:
+      body: { users: [{ id: u_1 }] }
+    empty:
+      body: { users: [] }
+
+get:
+  route: GET /users/{id}
+  active: not_found
+  states:
+    found: {}
+    not_found:
+      status: 404
