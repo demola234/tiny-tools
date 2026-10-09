@@ -58,7 +58,7 @@ var epoch = time.Unix(0, 0).UTC()
 
 func plain(version string) string { return strings.TrimPrefix(version, "v") }
 
-func (t Target) archive(version string) string {
+func (t Target) Archive(version string) string {
 	ext := ".tar.gz"
 	if t.OS == "windows" {
 		ext = ".zip"
@@ -66,7 +66,7 @@ func (t Target) archive(version string) string {
 	return fmt.Sprintf("%s_%s_%s_%s%s", binary, plain(version), t.OS, t.Arch, ext)
 }
 
-func (t Target) exe() string {
+func (t Target) Exe() string {
 	if t.OS == "windows" {
 		return binary + ".exe"
 	}
@@ -88,7 +88,7 @@ func Build(ctx context.Context, o Options) ([]Artifact, error) {
 		if err != nil {
 			return nil, err
 		}
-		name := t.archive(o.Version)
+		name := t.Archive(o.Version)
 		if err := os.WriteFile(filepath.Join(o.Out, name), data, 0o644); err != nil {
 			return nil, err
 		}
@@ -106,7 +106,7 @@ func compile(ctx context.Context, o Options, t Target) ([]byte, error) {
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	out := filepath.Join(dir, t.exe())
+	out := filepath.Join(dir, t.Exe())
 	cmd := exec.CommandContext(ctx, "go", "build", "-trimpath", "-ldflags", "-s -w -X "+ldflag+"="+o.Version, "-o", out, pkg) //nolint:gosec // the version comes from the maintainer's own release command
 	cmd.Dir = o.ModuleDir
 	cmd.Env = append(os.Environ(), "GOOS="+t.OS, "GOARCH="+t.Arch, "CGO_ENABLED=0")
@@ -123,7 +123,7 @@ type entry struct {
 }
 
 func pack(moduleDir string, t Target, bin []byte) ([]byte, error) {
-	files := []entry{{name: t.exe(), mode: 0o755, data: bin}}
+	files := []entry{{name: t.Exe(), mode: 0o755, data: bin}}
 	for _, name := range extras {
 		data, err := os.ReadFile(filepath.Join(moduleDir, name))
 		if errors.Is(err, os.ErrNotExist) {

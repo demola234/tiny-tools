@@ -2,7 +2,7 @@
 
 All notable changes to MockMachina are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Release tags are `mock_machina/vX.Y.Z`.
 
-## [0.1.1] - 2026-10-09
+## [0.1.2] - 2026-10-09
 
 
 The first release: a mock HTTP server whose contract lives in your repository.
@@ -62,4 +62,6 @@ The first release: a mock HTTP server whose contract lives in your repository.
 - `mockmachina cert` shows where the local CA is and how to trust it on each device; `--pem` prints it and `--install` trusts it on this computer and in a booted iOS Simulator.
 - Releases: archives for macOS, Linux and Windows on amd64 and arm64, with checksums and an SBOM, on tags `mock_machina/vX.Y.Z`. An install script for macOS and Linux that checks checksums, a Homebrew tap (`demola234/tap/mockmachina`) and a Scoop bucket.
 - A multi-arch Docker image, `ghcr.io/demola234/mockmachina`: static, non-root, serving `/mock/.mockmachina` on port 4001 and following edits.
+- `mockmachina update` updates to the latest release: with `brew`, `scoop` or `go install` when it was installed that way, otherwise by replacing itself after checking the archive's checksum. `--check` only reports whether a newer release is out. Downloads show a progress bar, and a download that stops sending data for 30 seconds is abandoned.
+- In a terminal, mockmachina asks `Update now? [Y/n]` when a newer release is out. It checks GitHub at most once a day, doesn't ask again about a version you said no to, and never asks in CI, in pipes, for development builds or for `update`, `mcp`, `--version` and `--help`. `MOCKMACHINA_NO_UPDATE_CHECK=1` turns it off.
 - Docs: quickstart, file format, mobile setup (now with HTTPS), installing, HTTPS. Flutter example app with widget tests that run against the mock, and a storefront example that uses every feature and is checked by the test suite.

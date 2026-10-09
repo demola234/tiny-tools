@@ -5,6 +5,7 @@ get:
   route: GET /health
   summary: Whether the API is up; the first call gets 503 while it starts
   mode: sequential
+  active: up
   states:
     starting:
       status: 503

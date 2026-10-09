@@ -10,6 +10,7 @@ list:
   rules:
     - when: { header.authorization: { exists: false } }
       state: unauthorized
+  active: none
   states:
     success:
       body: orders.json

@@ -35,7 +35,7 @@ func TestCatalog_WithAProject(t *testing.T) {
 
 	want := []string{
 		"start", "start --plain", "tui", "state set", "state list", "add", "lint", "diff", "diff --live",
-		"import", "export", "docs", "docs -o", "mcp", "cert", "cert --install", "init",
+		"import", "export", "docs", "docs -o", "mcp", "cert", "cert --install", "update", "init",
 	}
 	if diff := cmp.Diff(want, names(actions)); diff != "" {
 		t.Errorf("order (-want +got):\n%s", diff)

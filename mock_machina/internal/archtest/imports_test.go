@@ -22,7 +22,7 @@ var allowed = map[string][]string{
 	"internal/buildinfo": {},
 	"internal/cli": {
 		"internal/buildinfo", "internal/certs", "internal/clock", "internal/config", "internal/diff", "internal/docs", "internal/gitfs", "internal/live", "internal/mcp", "internal/model", "internal/openapi",
-		"internal/seed", "internal/server", "internal/suggest", "internal/tui", "internal/watch", "github.com/spf13/cobra", "charm.land/fang/v2", "charm.land/bubbletea/v2", "charm.land/lipgloss/v2", "github.com/charmbracelet/x/term",
+		"internal/release", "internal/seed", "internal/server", "internal/suggest", "internal/tui", "internal/update", "internal/watch", "github.com/spf13/cobra", "charm.land/fang/v2", "charm.land/bubbletea/v2", "charm.land/lipgloss/v2", "github.com/charmbracelet/x/term",
 	},
 	"internal/diff":  {"internal/model"},
 	"internal/gitfs": {},
@@ -38,6 +38,7 @@ var allowed = map[string][]string{
 	"internal/model":    {},
 	"internal/openapi":  {"internal/model", "go.yaml.in/yaml/v3"},
 	"internal/release":  {},
+	"internal/update":   {"internal/clock", "internal/release"},
 	"tools/release":     {"internal/release"},
 	"internal/schema":   {"internal/model", "github.com/santhosh-tekuri/jsonschema/v6", "github.com/santhosh-tekuri/jsonschema/v6/kind", "golang.org/x/text/language", "golang.org/x/text/message"},
 	"internal/seed":     {},

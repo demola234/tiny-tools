@@ -74,6 +74,9 @@ func catalog(proj *model.Project) []tui.Action {
 		}},
 		{Name: "cert", Short: "Show how to trust HTTPS on phones and simulators", Args: []string{"cert"}},
 		{Name: "cert --install", Short: "Trust the local certificate authority on this computer", Args: []string{"cert", "--install"}},
+		{Name: "update", Short: "Update mockmachina to the latest release", Args: []string{"update"}, Fields: []tui.Field{
+			{Label: "Only check", Flag: "--check", Toggle: true},
+		}},
 	}
 	if proj == nil {
 		return slices.Concat([]tui.Action{initAction}, actions)
