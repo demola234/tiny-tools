@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -130,7 +131,7 @@ func TestReplace_SwapsTheBinary(t *testing.T) {
 		if string(got) != "new binary" {
 			t.Errorf("%s: binary = %q", target.OS, got)
 		}
-		if info, _ := os.Stat(exe); target.OS != "windows" && info.Mode().Perm()&0o100 == 0 {
+		if info, _ := os.Stat(exe); runtime.GOOS != "windows" && info.Mode().Perm()&0o100 == 0 {
 			t.Errorf("%s: not executable: %v", target.OS, info.Mode())
 		}
 		leftovers, _ := filepath.Glob(filepath.Join(filepath.Dir(exe), ".mockmachina-*"))
