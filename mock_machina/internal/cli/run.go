@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"charm.land/fang/v2"
 
 	"github.com/demola234/tiny-tools/mock_machina/internal/buildinfo"
+	"github.com/demola234/tiny-tools/mock_machina/internal/clock"
 )
 
 type Env struct {
@@ -20,6 +22,9 @@ type Env struct {
 }
 
 func Run(ctx context.Context, env Env) int {
+	if interactive(env) && wantsUpdateCheck(env.Args, os.Getenv) {
+		offerUpdate(ctx, env)
+	}
 	if len(env.Args) == 0 && interactive(env) {
 		args, err := launch(ctx, env)
 		if err != nil {
@@ -57,4 +62,14 @@ func printError(w io.Writer, styles fang.Styles, err error) {
 		return
 	}
 	_, _ = fmt.Fprintf(w, "error: %v\n", err)
+}
+
+func offerUpdate(ctx context.Context, env Env) {
+	o := defaultUpdateOptions(env.Info.Version)
+	o.animate = true
+	updateCheck{
+		current: env.Info.Version, state: checkStatePath(), now: clock.Real{}.Now(),
+		in: env.Stdin, out: env.Stdout, src: o.src,
+		apply: func(ctx context.Context, latest string) error { return o.install(ctx, env.Stdout, latest) },
+	}.run(ctx)
 }

@@ -20,7 +20,7 @@ func NewRootCmd() *cobra.Command {
 		Args: cobra.ArbitraryArgs,
 		RunE: runGroup,
 	}
-	cmd.AddCommand(newInitCmd(), newAddCmd(), newStartCmd(), newStateCmd(), newLintCmd(), newDiffCmd(), newMCPCmd(), newImportCmd(), newExportCmd(), newDocsCmd(), newCertCmd(), newTUICmd())
+	cmd.AddCommand(newInitCmd(), newAddCmd(), newStartCmd(), newStateCmd(), newLintCmd(), newDiffCmd(), newMCPCmd(), newImportCmd(), newExportCmd(), newDocsCmd(), newCertCmd(), newTUICmd(), newUpdateCmd())
 	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return UsageError(err)
 	})

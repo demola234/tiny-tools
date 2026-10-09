@@ -64,6 +64,19 @@ For HTTPS in a container, see [HTTPS](https.md#in-docker).
 
 ## Updating and removing
 
+`mockmachina update` finds the latest release and updates whichever way it was installed: it runs `brew upgrade`, `scoop update` or `go install` for you, and replaces itself in place (after checking the checksum) when it came from the install script or a download. `mockmachina update --check` only tells you whether a newer release is out.
+
+When you run mockmachina in a terminal and a newer release is out, it asks first:
+
+```text
+↑ mockmachina v0.2.0 is out (you have v0.1.1). Update now? [Y/n]
+⠴ downloading mockmachina v0.2.0 ▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱ 2.2 / 6.2 MB
+```
+
+Enter updates, then your command carries on (the new version is used from the next run). `n` skips that version for good. It checks GitHub at most once a day, remembers the answer in your user cache folder, and stays quiet in CI, in pipes and scripts, and when GitHub can't be reached. Set `MOCKMACHINA_NO_UPDATE_CHECK=1` to turn it off.
+
+To do it by hand:
+
 | Installed with | Update | Remove |
 | --- | --- | --- |
 | Homebrew | `brew upgrade mockmachina` | `brew uninstall mockmachina` |
