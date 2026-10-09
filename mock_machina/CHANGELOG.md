@@ -2,7 +2,7 @@
 
 All notable changes to MockMachina are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Release tags are `mock_machina/vX.Y.Z`.
 
-## [0.1.0] - 2026-10-09
+## [0.1.1] - 2026-10-09
 
 
 The first release: a mock HTTP server whose contract lives in your repository.
