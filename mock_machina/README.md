@@ -2,7 +2,7 @@
 
 MockMachina serves mock APIs from contract files that live in your repository, so frontend and mobile developers can build against an API before it exists and switch between success, empty and error responses without changing app code. The same files are the contract backend and frontend agree on in pull requests.
 
-> **Status: pre-release.** It serves HTTP mocks with switchable states, rules, fake data, faults and hot reload; the first tagged release is v0.1.
+> **Status: early releases.** It serves HTTP, WebSocket, SSE, GraphQL and gRPC mocks with switchable states, rules, fake data, faults and hot reload, and a dashboard in the browser. See the [changelog](CHANGELOG.md) for what each release adds.
 
 ## Install
 
@@ -45,6 +45,9 @@ go build -o bin/ ./cmd/mockmachina
 - [Comparing contracts](docs/diff.md): breaking changes between git versions, or against a running API
 - [Schemas and contracts](docs/contracts.md): check bodies and requests against JSON Schemas, and generate bodies
 - [Import and export](docs/import-export.md): OpenAPI, Swagger and Postman in and out, and Swagger UI docs
+- [Dashboard](docs/dashboard.md): routes, live traffic, data, scenarios and coverage in your browser, served by the mock itself
+- [Scenarios](docs/scenarios.md): put the whole app into a named situation, for one request or until reset
+- [Control API](docs/control-api.md): switch states, reset and watch requests on a running mock from tests and scripts
 - [Working as a team](docs/collaboration.md): review contract changes in pull requests, check the real backend, and proxy to it while it's half built
 - [Using an AI assistant](docs/ai.md): let Claude, Cursor, Copilot or ChatGPT read the contract and add the states your app is missing
 - [Storefront example](examples/storefront/): every feature in one project, with `curl` to try each one

@@ -2,6 +2,33 @@
 
 All notable changes to MockMachina are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Release tags are `mock_machina/vX.Y.Z`.
 
+## [0.2.0] - 2026-15-09
+
+Planned as 0.2.0: the mock speaks more protocols, can be driven from tests, and has a dashboard.
+
+### Added
+
+- WebSocket and server-sent event routes: `route: WS /path` and `route: SSE /path`. States send messages on connect (`send`), answer client messages that match (`reply`, WS only), push on a timer (`every` and `push`), and end or drop the stream (`close`). Messages are JSON or text with templates, including `{{ message.x }}` in replies. A state with status 400 or more refuses the connection. `lint` checks every field, and `export` leaves stream routes out with a note.
+- `webhooks` on a state: requests the mock sends after answering, with a delay (`after`), templated `url`, `headers` and `body`, and `retries` with backoff while the receiver fails. Each attempt is logged.
+- GraphQL: `route: GRAPHQL /graphql` with `operation: GetUser`, one route per operation on a shared path. Operations are found from `operationName` or the query text, over POST and GET; rules and templates read `body.variables.x`; an unknown operation gets a GraphQL error with the closest match.
+- gRPC: `.proto` files in `protos/` and `route: GRPC package.Service/Method`. Unary methods answer with a JSON `body` (checked against the output type by `lint`) or a `grpc` status and `message`; server-streaming methods use `send`, `every`/`push` and `close`. Rules and templates read the request as `body.<field>`, `x-mock-state` metadata picks a state, and server reflection works with grpcurl. Served on `ports.grpc` (default 4002) or `--grpc-port`, and reloaded live.
+- Scenario files in `.mockmachina/scenarios/<name>.yaml` name a state for each of several routes. `lint` and `start` check every route and state, with a "did you mean". The `X-Mock-Scenario` header (or `x-mock-scenario` gRPC metadata) answers one request as the scenario says, after `X-Mock-State` and `?__state=` and before pins; an unknown name is a `400` with the closest match.
+- A control API on the mock's own port under `/__mockmachina/`, for tests and scripts:
+  - list routes, and pin a route to a state until reset (`PUT /__mockmachina/routes/{id}/state`), or write it to the file with `"persist": true`;
+  - reset pins, the applied scenario, call counts, variables, CRUD collections, the request history and coverage;
+  - list the newest 500 requests with session counts (`GET /__mockmachina/requests`) and stream every request, with its duration, and every hot reload as server-sent events (`GET /__mockmachina/events`);
+  - show which states each route has served (`GET /__mockmachina/coverage`);
+  - look at and delete CRUD items (`/__mockmachina/collections`);
+  - list and apply scenarios (`/__mockmachina/scenarios`).
+  Requests from this machine to `localhost`, `127.0.0.1` or `[::1]` need nothing. Anything else needs a bearer token, which `start` prints or takes from `MOCKMACHINA_CONTROL_TOKEN`; that includes a website that points its own name at this machine. Paths under `/__mockmachina/` are reserved.
+- A dashboard at `/__mockmachina/ui/`, served by the mock and built into the binary: Overview, Routes (pin, unpin, make default), live Traffic with filters and pause, Data, Scenarios and Coverage, with ⌘K search and keyboard shortcuts. `start` prints its address, and a browser opening the mock's root (`/`) is sent there unless a route or the proxy answers `/`. Other machines sign in once with the control token. Every page sends a strict Content Security Policy, and changes need the dashboard's own `HX-Request` header.
+- `scenario.schema.json` for editor autocomplete in scenario files.
+- Docs: control API, dashboard and its browser checklist, and scenarios. The storefront example gains three scenarios and is still checked by the test suite.
+
+### Changed
+
+- `mockmachina import` without a FILE, in a terminal, lists the specs found in this folder and below to pick from (also in the launcher). Schemas whose names the project already uses in another file are renamed with a prefix from the spec's file name, so an import never breaks the project.
+
 ## [0.1.2] - 2026-10-09
 
 

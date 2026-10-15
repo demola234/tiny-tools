@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -18,14 +19,18 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 
 	"github.com/demola234/tiny-tools/mock_machina/internal/clock"
 	"github.com/demola234/tiny-tools/mock_machina/internal/config"
+	"github.com/demola234/tiny-tools/mock_machina/internal/control"
 	"github.com/demola234/tiny-tools/mock_machina/internal/model"
 	"github.com/demola234/tiny-tools/mock_machina/internal/seed"
 	"github.com/demola234/tiny-tools/mock_machina/internal/server"
 	"github.com/demola234/tiny-tools/mock_machina/internal/watch"
 )
+
+const controlTokenEnv = "MOCKMACHINA_CONTROL_TOKEN" //nolint:gosec // the name of an environment variable, not a credential
 
 const (
 	defaultWatchEvery = 250 * time.Millisecond
@@ -53,6 +58,8 @@ type startOptions struct {
 	width      int
 	dark       bool
 	plain      bool
+	grpcPort   int
+	grpcSet    bool
 }
 
 func newStartCmd() *cobra.Command {
@@ -107,6 +114,7 @@ func (o *startOptions) prepare(cmd *cobra.Command) error {
 	}
 	o.dir = dir
 	o.hostSet, o.portSet = cmd.Flags().Changed("host"), cmd.Flags().Changed("port")
+	o.grpcSet = cmd.Flags().Changed("grpc-port")
 	return nil
 }
 
@@ -115,6 +123,7 @@ func addStartFlags(cmd *cobra.Command, opts *startOptions) {
 	defaults := model.DefaultConfig()
 	cmd.Flags().StringVar(&opts.host, "host", defaults.Host, "address to listen on; 0.0.0.0 lets phones on your network connect")
 	cmd.Flags().IntVar(&opts.port, "port", defaults.Ports.Mock, "port to listen on")
+	cmd.Flags().IntVar(&opts.grpcPort, "grpc-port", defaults.Ports.GRPC, "port for gRPC routes, when the project has any")
 	cmd.Flags().BoolVar(&opts.noCORS, "no-cors", false, "don't send CORS headers (they're on so browser and Flutter web apps can call the mock)")
 	cmd.Flags().BoolVar(&opts.noMockHdrs, "no-mock-headers", false, "don't add X-Mock-State and X-Mock-Route to responses")
 	cmd.Flags().BoolVar(&opts.https, "https", false, "serve HTTPS with a certificate from the local certificate authority (see mockmachina cert)")
@@ -163,6 +172,8 @@ func (e problemsError) Error() string { return e.probs.Summary() }
 type session struct {
 	proj    *model.Project
 	ln      net.Listener
+	grpc    *grpc.Server
+	grpcLn  net.Listener
 	rl      *reloader
 	watcher *watch.Watcher
 	url     string
@@ -182,6 +193,13 @@ func openSession(ctx context.Context, o startOptions, report func(server.Request
 		return nil, problemsError{probs: probs}
 	}
 	o.source = seed.New(cmp.Or(o.seed, proj.Config.Seed, seed.Pick()))
+	token, note := o.controlAccess(proj.Config)
+	ctl := control.New(proj, control.Options{Name: projectName(o.dir), Dir: o.dir, Memory: o.memory, Token: token})
+	logRequest := report
+	report = func(r server.Request) {
+		logRequest(r)
+		ctl.Publish(r)
+	}
 	handler, err := server.New(proj, o.serverOptions(proj.Config, report))
 	if err != nil {
 		return nil, err
@@ -189,7 +207,7 @@ func openSession(ctx context.Context, o startOptions, report func(server.Request
 	s := &session{
 		proj:    proj,
 		watcher: watcher,
-		rl:      &reloader{dir: o.dir, opts: o, cfg: proj.Config, live: server.NewLive(handler), report: report, log: logf},
+		rl:      &reloader{dir: o.dir, opts: o, cfg: proj.Config, live: server.NewLive(handler), control: ctl, report: report, log: logf},
 	}
 	if s.ln, err = listen(ctx, o.address(proj.Config)); err != nil {
 		return nil, err
@@ -204,6 +222,16 @@ func openSession(ctx context.Context, o startOptions, report func(server.Request
 		s.ln, scheme = tls.NewListener(s.ln, cfg), "https"
 	}
 	s.url = scheme + "://" + s.ln.Addr().String()
+	dashboard := "dashboard on " + openable(s.url) + model.ControlPrefix + "ui/"
+	if note != "" {
+		s.notes = append(s.notes, fmt.Sprintf(note, openable(s.url)+model.ControlPrefix))
+		dashboard += "; other machines sign in with the token"
+	}
+	s.notes = append(s.notes, dashboard)
+	if err := s.openGRPC(ctx, o, proj, report); err != nil {
+		_ = s.ln.Close()
+		return nil, err
+	}
 	s.banner, s.notes = o.banner(proj, s.url), append(s.notes, o.notes(proj)...)
 	if server.UsesRandomness(proj) {
 		s.seed = o.source.Value()
@@ -251,16 +279,58 @@ func (s *session) run(ctx context.Context) error {
 	watching.Go(func() {
 		s.watcher.Run(ctx, s.rl.reload)
 	})
-	err := serve(ctx, s.ln, s.rl.live)
+	if s.grpc != nil {
+		watching.Go(func() { _ = s.grpc.Serve(s.grpcLn) })
+		watching.Go(func() {
+			<-ctx.Done()
+			s.grpc.GracefulStop()
+		})
+	}
+	watching.Go(func() {
+		<-ctx.Done()
+		s.rl.control.Close()
+	})
+	err := serve(ctx, s.ln, s.rl.handler())
 	watching.Wait()
 	return err
+}
+
+func (s *session) openGRPC(ctx context.Context, o startOptions, proj *model.Project, report func(server.Request)) error {
+	if !server.HasGRPC(proj) {
+		return nil
+	}
+	h, err := server.NewGRPC(ctx, proj, o.serverOptions(proj.Config, report))
+	if err != nil {
+		return err
+	}
+	addr := o.grpcAddress(proj.Config)
+	if s.grpcLn, err = listen(ctx, addr); err != nil {
+		return err
+	}
+	s.rl.grpc = server.NewLiveGRPC(h)
+	s.grpc = server.GRPCServer(s.rl.grpc)
+	at := s.grpcLn.Addr().String()
+	s.rl.control.SetGRPC(at)
+	s.notes = append(s.notes, fmt.Sprintf("gRPC on %s (try: grpcurl -plaintext %s list)", at, at))
+	return nil
+}
+
+func (o startOptions) grpcAddress(cfg model.Config) string {
+	host, port := cfg.Host, cfg.Ports.GRPC
+	if o.hostSet {
+		host = o.host
+	}
+	if o.grpcSet {
+		port = o.grpcPort
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port))
 }
 
 func (o startOptions) serverOptions(cfg model.Config, report func(server.Request)) server.Options {
 	return server.Options{
 		Report: report, Clock: clock.Real{}, DisableCORS: o.noCORS, NoMockHeaders: o.noMockHdrs,
 		Proxy: o.proxyTarget(cfg), Memory: o.memory, Seed: o.source, Locale: cfg.Locale,
-		NoRequestValidation: o.noValidate,
+		NoRequestValidation: o.noValidate, Dashboard: model.ControlPrefix + "ui/",
 	}
 }
 
@@ -287,14 +357,50 @@ func (o startOptions) address(cfg model.Config) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))
 }
 
+func openable(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	if ip := net.ParseIP(u.Hostname()); ip != nil && ip.IsUnspecified() {
+		u.Host = net.JoinHostPort("localhost", u.Port())
+	}
+	return u.String()
+}
+
+func (o startOptions) controlAccess(cfg model.Config) (token, note string) {
+	host, _, _ := net.SplitHostPort(o.address(cfg))
+	token = os.Getenv(controlTokenEnv)
+	switch {
+	case isLoopback(host):
+		return token, ""
+	case token != "":
+		return token, "control API on %s; other machines send \"Authorization: Bearer $" + controlTokenEnv + "\""
+	}
+	token = rand.Text()
+	return token, "control API on %s; other machines send \"Authorization: Bearer " + token + "\""
+}
+
+func (rl *reloader) handler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, model.ControlPrefix) {
+			rl.control.ServeHTTP(w, r)
+			return
+		}
+		rl.live.ServeHTTP(w, r)
+	})
+}
+
 type reloader struct {
-	dir    string
-	opts   startOptions
-	cfg    model.Config
-	live   *server.Live
-	report func(server.Request)
-	log    func(string)
-	loaded func(*model.Project, config.Problems)
+	dir     string
+	opts    startOptions
+	cfg     model.Config
+	live    *server.Live
+	control *control.API
+	report  func(server.Request)
+	log     func(string)
+	loaded  func(*model.Project, config.Problems)
+	grpc    *server.LiveGRPC
 }
 
 func (rl *reloader) reload(changed []string) {
@@ -314,7 +420,11 @@ func (rl *reloader) reload(changed []string) {
 		rl.log(failed + "\n  " + err.Error())
 		return
 	}
+	if !rl.swapGRPC(proj, failed) {
+		return
+	}
 	rl.live.Swap(handler)
+	rl.control.Swap(proj)
 	rl.notify(proj, nil)
 	rl.log(fmt.Sprintf("reloaded%s (%s)", describe(changed), countRoutes(len(proj.Routes))))
 	if was, now := rl.opts.address(rl.cfg), rl.opts.address(proj.Config); now != was {
@@ -354,6 +464,12 @@ func serve(ctx context.Context, ln net.Listener, h http.Handler) error {
 }
 
 func formatRequest(r server.Request) string {
+	if r.Method == string(model.MethodGRPC) {
+		return formatGRPC(r)
+	}
+	if r.Webhook {
+		return formatWebhook(r)
+	}
 	if r.Proxied {
 		line := fmt.Sprintf("%s %s %d", r.Method, r.Path, r.Status)
 		if r.Route != "" {
@@ -423,3 +539,42 @@ func freePortNear(ctx context.Context, addr string) (int, bool) {
 }
 
 const maxPort = 65535
+
+func (rl *reloader) swapGRPC(proj *model.Project, failed string) bool {
+	if rl.grpc == nil {
+		if server.HasGRPC(proj) {
+			rl.log("the project now has gRPC routes; restart to serve them")
+		}
+		return true
+	}
+	h, err := server.NewGRPC(context.Background(), proj, rl.opts.serverOptions(proj.Config, rl.report))
+	if err != nil {
+		rl.log(failed + "\n  " + err.Error())
+		return false
+	}
+	rl.grpc.Swap(h)
+	return true
+}
+
+func formatGRPC(r server.Request) string {
+	if r.Problem == server.ProblemNoRoute {
+		return fmt.Sprintf("GRPC %s %s no route", r.Path, r.GRPCCode)
+	}
+	reason := string(r.Reason)
+	if r.Rule > 0 {
+		reason += " " + strconv.Itoa(r.Rule)
+	}
+	line := fmt.Sprintf("GRPC %s %s %s:%s (%s)", r.Path, r.GRPCCode, r.Route, r.State, reason)
+	if r.Fault != "" {
+		line += " fault: " + string(r.Fault)
+	}
+	return line
+}
+
+func formatWebhook(r server.Request) string {
+	from := fmt.Sprintf("(from %s:%s)", r.Route, r.State)
+	if r.Problem != "" {
+		return fmt.Sprintf("webhook %s %s failed %s: %s", r.Method, r.Path, from, r.Detail)
+	}
+	return fmt.Sprintf("webhook %s %s %d %s", r.Method, r.Path, r.Status, from)
+}

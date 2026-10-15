@@ -14,6 +14,8 @@ note: all routes start with /api/v3, the path of the first server
 next: mockmachina lint, then mockmachina start
 ```
 
+**No path to type?** Run `mockmachina import` with no file. In a terminal it lists the OpenAPI, Swagger and Postman files in this folder and below (found by their contents, not their names, skipping `node_modules`, `vendor`, `build`, `dist`, hidden folders and `.mockmachina`). Pick one with ←→ and press enter. The **import** entry in the `mockmachina` launcher shows the same list. In a script or pipe, it stops and prints the files it found.
+
 | Format | Detected by |
 | --- | --- |
 | OpenAPI 3.0 and 3.1, YAML or JSON | `openapi: 3.x` |
@@ -47,6 +49,14 @@ Anything that isn't imported is listed as a note, never dropped silently: cookie
 - Your own states, `active`, `owners`, `status`, `summary`, comments and formatting are kept.
 - Routes that are gone from the spec are kept and listed.
 - `schemas/api.yaml` is rewritten.
+
+**Schema names the project already uses.** Schemas from a spec go in `schemas/api.yaml`. If another file, like your own `schemas/orders.yaml`, already defines a schema with the same name, the spec's copy is renamed with a prefix from the spec's file name, and every reference to it is updated:
+
+```text
+renamed schema Order → SwaggerPetstoreOrder (schemas/orders.yaml already has Order)
+```
+
+Your schemas are never touched, and importing the same spec again reuses the same names.
 
 Add `--dry-run` to see the changes without writing them.
 

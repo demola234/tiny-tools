@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/demola234/tiny-tools/mock_machina/internal/model"
 )
 
 var paramName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -11,6 +13,9 @@ var paramName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 func pathProblem(path string) string {
 	if !strings.HasPrefix(path, "/") {
 		return fmt.Sprintf("path %q must start with \"/\"", path)
+	}
+	if strings.HasPrefix(path+"/", model.ControlPrefix) {
+		return fmt.Sprintf("path %q is under %s, which the control API uses; pick another path", path, model.ControlPrefix)
 	}
 	if strings.ContainsAny(path, "?#") {
 		return fmt.Sprintf("path %q can't contain \"?\" or \"#\"; query parameters aren't part of the path", path)

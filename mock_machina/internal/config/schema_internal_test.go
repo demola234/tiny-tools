@@ -126,6 +126,7 @@ func TestSchemas_MatchTheLoader(t *testing.T) {
 
 	route := readSchema(t, "route.schema.json")
 	config := readSchema(t, "config.schema.json")
+	scenario := readSchema(t, "scenario.schema.json")
 	tests := []struct {
 		name   string
 		schema []string
@@ -137,6 +138,7 @@ func TestSchemas_MatchTheLoader(t *testing.T) {
 		{"owner fields", keys(t, route, "$defs", "owners", "properties"), ownerFields},
 		{"config fields", keys(t, config, "properties"), configFields},
 		{"port fields", keys(t, config, "properties", "ports", "properties"), portFields},
+		{"scenario fields", keys(t, scenario, "properties"), scenarioFields},
 	}
 	for _, tc := range tests {
 		if !slices.Equal(tc.schema, sorted(tc.loader)) {
@@ -247,6 +249,39 @@ func TestConfigSchema(t *testing.T) {
 	} {
 		if err := sch.Validate(yamlInstance(t, src)); err == nil {
 			t.Errorf("%s: accepted, want rejected", name)
+		}
+	}
+}
+
+func TestScenarioSchema(t *testing.T) {
+	t.Parallel()
+
+	sch := compile(t, "scenario.schema.json")
+	paths, err := filepath.Glob(filepath.Join(filepath.Dir(testkit.Path(t)), "examples", "*", ".mockmachina", "scenarios", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := map[string]string{"every field": "title: Checkout fails\ndescription: Card declined.\nstates:\n  payments.create: declined\n  me.get: success\n"}
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		good[p] = string(data)
+	}
+	for name, src := range good {
+		if err := sch.Validate(yamlInstance(t, src)); err != nil {
+			t.Errorf("%s is rejected: %v", name, err)
+		}
+	}
+	for name, src := range map[string]string{
+		"no states":      "title: x\n",
+		"empty states":   "states: {}\n",
+		"unknown field":  "titel: x\nstates: { a.b: ok }\n",
+		"state not text": "states: { a.b: [ok] }\n",
+	} {
+		if sch.Validate(yamlInstance(t, src)) == nil {
+			t.Errorf("%s is accepted", name)
 		}
 	}
 }

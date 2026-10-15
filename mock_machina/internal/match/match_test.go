@@ -108,3 +108,27 @@ func FuzzCondition(f *testing.F) {
 		}
 	})
 }
+
+func TestCondition_Message(t *testing.T) {
+	t.Parallel()
+
+	jsonMsg := match.Facts{Message: map[string]any{"type": "ping", "seq": 3.0}}
+	textMsg := match.Facts{Message: "bye"}
+	tests := []struct {
+		name string
+		c    model.Condition
+		f    match.Facts
+		want bool
+	}{
+		{"json field", cond(model.ScopeMessage, "type", model.OpEq, "ping"), jsonMsg, true},
+		{"json number", cond(model.ScopeMessage, "seq", model.OpGt, 2.0), jsonMsg, true},
+		{"whole text message", cond(model.ScopeMessage, "", model.OpEq, "bye"), textMsg, true},
+		{"field of a text message", cond(model.ScopeMessage, "type", model.OpEq, "bye"), textMsg, false},
+		{"no message", cond(model.ScopeMessage, "type", model.OpExists, true), match.Facts{}, false},
+	}
+	for _, tt := range tests {
+		if got := match.Condition(tt.c, tt.f); got != tt.want {
+			t.Errorf("%s: %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}

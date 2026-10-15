@@ -87,7 +87,7 @@ func TestLoadFS_Problems(t *testing.T) {
 		{
 			"unknown route field without suggestion",
 			map[string]string{"routes/r.yaml": withField("extra: red")},
-			[]string{`routes/r.yaml:3: unknown field "extra" (expected one of: route, examples, summary, status, owners, request, responses, active, mode, rules, serve, crud, generated, states)`},
+			[]string{`routes/r.yaml:3: unknown field "extra" (expected one of: route, operation, examples, summary, status, owners, request, responses, active, mode, rules, serve, crud, generated, states)`},
 		},
 		{
 			"field defined twice",
@@ -141,6 +141,11 @@ func TestLoadFS_Problems(t *testing.T) {
 			"path without slash",
 			map[string]string{"routes/r.yaml": "get:\n  route: GET users\n  states:\n    ok: {}\n"},
 			[]string{`routes/r.yaml:2: path "users" must start with "/"`},
+		},
+		{
+			"control API prefix",
+			map[string]string{"routes/r.yaml": "get:\n  route: GET /__mockmachina/routes\n  states:\n    ok: {}\n"},
+			[]string{`routes/r.yaml:2: path "/__mockmachina/routes" is under /__mockmachina/, which the control API uses; pick another path`},
 		},
 		{
 			"unclosed brace",

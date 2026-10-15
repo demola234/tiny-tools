@@ -253,3 +253,17 @@ func TestLauncher_EmptyOptionalPositionalIsLeftOut(t *testing.T) {
 		t.Errorf("Chosen (-want +got):\n%s", diff)
 	}
 }
+
+func TestLauncher_OpenStartsInTheForm(t *testing.T) {
+	l := &launch{t: t, m: tui.NewLauncher("v0.7.0", actions()).Open("state set")}
+	l.send(tui.Tick(now), tea.WindowSizeMsg{Width: 80, Height: 22})
+	if !strings.Contains(l.frame(), "Route and state") {
+		t.Fatalf("Open should show the form:\n%s", l.frame())
+	}
+	if !quits(t, l.keys("enter")) {
+		t.Fatal("enter should run it")
+	}
+	if diff := cmp.Diff([]string{"state", "set", "users.list", "empty"}, l.m.Chosen()); diff != "" {
+		t.Errorf("Chosen (-want +got):\n%s", diff)
+	}
+}

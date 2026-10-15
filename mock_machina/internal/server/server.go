@@ -2,6 +2,7 @@ package server
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,16 +37,19 @@ const (
 	ReasonRule       Reason = "rule"
 	ReasonSequential Reason = "sequential"
 	ReasonRandom     Reason = "random"
+	ReasonControl    Reason = "control"
+	ReasonScenario   Reason = "scenario"
 )
 
 type Problem string
 
 const (
-	ProblemNoRoute        Problem = "no route"
-	ProblemUnknownState   Problem = "unknown state"
-	ProblemClientLeft     Problem = "client left before the response"
-	ProblemBackend        Problem = "backend unreachable"
-	ProblemInvalidRequest Problem = "invalid request"
+	ProblemNoRoute         Problem = "no route"
+	ProblemUnknownState    Problem = "unknown state"
+	ProblemClientLeft      Problem = "client left before the response"
+	ProblemBackend         Problem = "backend unreachable"
+	ProblemInvalidRequest  Problem = "invalid request"
+	ProblemUnknownScenario Problem = "unknown scenario"
 )
 
 type Request struct {
@@ -61,6 +65,9 @@ type Request struct {
 	Rule       int
 	Fault      model.FaultType
 	Detail     string
+	Webhook    bool
+	GRPCCode   string
+	Duration   time.Duration
 }
 
 type Options struct {
@@ -74,9 +81,24 @@ type Options struct {
 	Locale        string
 
 	NoRequestValidation bool
+	WebhookRetryWait    time.Duration
+	Dashboard           string
+
+	scenarios scenarios
 }
 
 const clientClosedRequest = 499
+
+func (o Options) reporter() func(Request) {
+	start := o.Clock.Now()
+	return func(r Request) {
+		r.Duration = o.Clock.Now().Sub(start)
+		if r.Route != "" && r.State != "" && !r.Webhook && r.Problem == "" {
+			o.Memory.serve(r.Route, r.State)
+		}
+		o.Report(r)
+	}
+}
 
 func New(p *model.Project, opts Options) (http.Handler, error) {
 	if opts.Report == nil {
@@ -88,36 +110,23 @@ func New(p *model.Project, opts Options) (http.Handler, error) {
 	if opts.Memory == nil {
 		opts.Memory = NewMemory()
 	}
+	opts.scenarios = indexScenarios(p.Scenarios)
 	var px *proxy
 	if opts.Proxy != nil {
 		px = newProxy(opts.Proxy, opts)
 	}
 	set, _ := schema.New(p.Schemas)
 	mux := http.NewServeMux()
-	mux.Handle("/", noRoute(opts.Report, p.Routes, px))
+	mux.Handle("/", noRoute(opts.reporter, p.Routes, px, opts.Dashboard))
 
-	owners := make(map[string]string, len(p.Routes))
-	for _, rt := range p.Routes {
-		compiled, templatesReadBody, err := compileStates(rt)
-		if err != nil {
-			return nil, err
-		}
-		checks, err := compileRequest(set, p.Schemas, rt.Request)
-		if err != nil {
-			return nil, fmt.Errorf("route %s: %w", rt.ID, err)
-		}
-		h := serveRoute(rt, opts, px, compiled, templatesReadBody, checks)
-		for _, pattern := range patterns(rt) {
-			if err := handle(mux, pattern, h); err != nil {
-				return nil, conflictError(rt, pattern, err, owners)
-			}
-			owners[pattern] = rt.ID
-		}
+	if err := route(mux, p, opts, px, set); err != nil {
+		return nil, err
 	}
+	h := checkScenario(mux, opts)
 	if opts.DisableCORS {
-		return mux, nil
+		return h, nil
 	}
-	return withCORS(mux), nil
+	return withCORS(h), nil
 }
 
 func handle(mux *http.ServeMux, pattern string, h http.Handler) (err error) {
@@ -139,17 +148,48 @@ func conflictError(rt *model.Route, pattern string, cause error, owners map[stri
 	return fmt.Errorf("route %s (%s): %w", rt.ID, pattern, cause)
 }
 
-func serveRoute(rt *model.Route, opts Options, px *proxy, compiled map[string]*templates, templatesReadBody bool, checks *requestCheck) http.HandlerFunc {
-	report := opts.Report
-	withBody := readsBody(rt) || templatesReadBody
+func compileRoute(rt *model.Route, set *schema.Set, schemas []*model.Schema) (routeTemplates, *requestCheck, error) {
+	states, readsBody, err := compileStates(rt)
+	if err != nil {
+		return routeTemplates{}, nil, err
+	}
+	checks, err := compileRequest(set, schemas, rt.Request)
+	if err != nil {
+		return routeTemplates{}, nil, fmt.Errorf("route %s: %w", rt.ID, err)
+	}
+	streams, err := compileStreams(rt)
+	if err != nil {
+		return routeTemplates{}, nil, err
+	}
+	hooks, err := compileHooks(rt)
+	if err != nil {
+		return routeTemplates{}, nil, err
+	}
+	return routeTemplates{states: states, readsBody: readsBody, streams: streams, hooks: hooks}, checks, nil
+}
+
+type routeTemplates struct {
+	states    map[string]*templates
+	readsBody bool
+	streams   map[string]*stream
+	hooks     map[string][]hook
+}
+
+func serveRoute(rt *model.Route, opts Options, px *proxy, compiled routeTemplates, checks *requestCheck) http.HandlerFunc {
+	withBody := readsBody(rt) || compiled.readsBody
 	return func(w http.ResponseWriter, req *http.Request) {
-		if px != nil && rt.Serve == model.ServeProxy && !asksForState(req) {
+		report := opts.reporter()
+		_, inScenario := opts.scenarios.state(req, rt.ID)
+		if px != nil && rt.Serve == model.ServeProxy && !asksForState(req) && !inScenario {
 			px.serve(w, req, rt.ID)
 			return
 		}
-		x := &exchange{rt: rt, opts: opts, req: req, call: opts.Memory.call(rt.ID), withBody: withBody}
-		name, reason, rule := pickState(rt, req, opts.Seed, x.call, x.facts)
+		x := &exchange{rt: rt, opts: opts, req: req, call: opts.Memory.call(rt.ID), withBody: withBody, report: report}
+		name, reason, rule := pickState(rt, req, opts, x.call, x.facts)
 		rec := Request{Method: req.Method, Path: req.URL.Path, Route: rt.ID, State: name, Reason: reason, Rule: rule}
+		if rt.Method == model.MethodGraphQL {
+			rec.Method, rec.Path = string(model.MethodGraphQL), rt.Operation
+		}
 
 		st, ok := rt.States.Get(name)
 		if !ok {
@@ -160,21 +200,21 @@ func serveRoute(rt *model.Route, opts Options, px *proxy, compiled map[string]*t
 			report(rec)
 			return
 		}
-		if checks != nil && !opts.NoRequestValidation && !st.SkipRequestValidation {
-			if problems := checks.check(req, x.body); len(problems) > 0 {
-				rec.Status, rec.Problem = http.StatusBadRequest, ProblemInvalidRequest
-				rec.Detail = problems[0].At + ": " + problems[0].Message
-				writeJSON(w, rec.Status, invalidRequest{Error: "invalid_request", Route: rt.ID, Problems: problems})
-				report(rec)
-				return
-			}
+		if x.rejected(w, checks, st, &rec) {
+			report(rec)
+			return
 		}
 		if opts.Clock.Sleep(req.Context(), delay(st, opts.Seed, rt.ID, x.call)) != nil {
 			rec.Status, rec.Problem = clientClosedRequest, ProblemClientLeft
 			report(rec)
 			return
 		}
-		x.respond(w, st, compiled[name], &rec)
+		if opensStream(rt, st) {
+			x.open(req.Context(), w, st, compiled.states[name], compiled.streams[name], &rec)
+			return
+		}
+		x.state, x.hooks = name, compiled.hooks[name]
+		x.respond(req.Context(), w, st, compiled.states[name], &rec)
 		report(rec)
 	}
 }
@@ -183,8 +223,11 @@ type exchange struct {
 	rt       *model.Route
 	opts     Options
 	req      *http.Request
+	report   func(Request)
 	call     int
 	withBody bool
+	state    string
+	hooks    []hook
 	cached   *match.Facts
 	raw      []byte
 	read     bool
@@ -218,7 +261,7 @@ func (x *exchange) env() tmpl.Env {
 	}
 }
 
-func (x *exchange) respond(w http.ResponseWriter, st *model.State, t *templates, rec *Request) {
+func (x *exchange) respond(ctx context.Context, w http.ResponseWriter, st *model.State, t *templates, rec *Request) {
 	rec.Status = st.EffectiveStatus()
 	h := w.Header()
 	setStateHeaders(h, st)
@@ -229,6 +272,7 @@ func (x *exchange) respond(w http.ResponseWriter, st *model.State, t *templates,
 	if len(st.Set) > 0 {
 		x.assign(st.Set, t)
 	}
+	x.sendWebhooks(ctx, x.hooks)
 	if x.crud(st) {
 		r := x.serveCRUD()
 		rec.Status = r.status
@@ -269,12 +313,18 @@ func (x *exchange) assign(set []model.Assignment, t *templates) {
 	}
 }
 
-func pickState(rt *model.Route, req *http.Request, src seed.Source, call int, facts func() match.Facts) (string, Reason, int) {
+func pickState(rt *model.Route, req *http.Request, opts Options, call int, facts func() match.Facts) (string, Reason, int) {
 	if name := req.Header.Get(stateHeader); name != "" {
 		return name, ReasonHeader, 0
 	}
 	if name := req.URL.Query().Get(stateQuery); name != "" {
 		return name, ReasonQuery, 0
+	}
+	if name, ok := opts.scenarios.state(req, rt.ID); ok {
+		return name, ReasonScenario, 0
+	}
+	if name, ok := opts.Memory.Pinned(rt.ID); ok {
+		return name, ReasonControl, 0
 	}
 	switch rt.Mode {
 	case model.ModeRules:
@@ -284,7 +334,7 @@ func pickState(rt *model.Route, req *http.Request, src seed.Source, call int, fa
 	case model.ModeSequential:
 		return rt.States[min(call, len(rt.States))-1].Name, ReasonSequential, 0
 	case model.ModeRandom:
-		pick := src.Stream(rt.ID, strconv.Itoa(call)).IntN(len(rt.States))
+		pick := opts.Seed.Stream(rt.ID, strconv.Itoa(call)).IntN(len(rt.States))
 		return rt.States[pick].Name, ReasonRandom, 0
 	case model.ModeActive:
 	}
@@ -300,10 +350,15 @@ func setStateHeaders(h http.Header, st *model.State) {
 	}
 }
 
-func noRoute(report func(Request), routes []*model.Route, px *proxy) http.HandlerFunc {
+func noRoute(reporter func() func(Request), routes []*model.Route, px *proxy, dashboard string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		report := reporter()
 		if px != nil {
 			px.serve(w, req, "")
+			return
+		}
+		if dashboard != "" && opensPage(req) && req.URL.Path == "/" {
+			http.Redirect(w, req, dashboard, http.StatusFound)
 			return
 		}
 		closest := closestRoutes(req.Method, req.URL.Path, routes)
@@ -314,6 +369,10 @@ func noRoute(report func(Request), routes []*model.Route, px *proxy) http.Handle
 		}
 		report(rec)
 	}
+}
+
+func opensPage(req *http.Request) bool {
+	return req.Method == http.MethodGet && req.Header.Get("Sec-Fetch-Mode") == "navigate" && req.Header.Get("Sec-Fetch-Dest") == "document"
 }
 
 const maxClosest = 3
@@ -380,9 +439,61 @@ func delay(st *model.State, src seed.Source, route string, call int) time.Durati
 }
 
 func patterns(rt *model.Route) []string {
+	if rt.Method.Stream() {
+		return []string{"GET " + rt.Path}
+	}
 	if rt.Method != model.MethodCRUD {
 		return []string{string(rt.Method) + " " + rt.Path}
 	}
 	one := rt.Path + "/{" + crudParam + "}"
 	return []string{"GET " + rt.Path, "POST " + rt.Path, "GET " + one, "PUT " + one, "PATCH " + one, "DELETE " + one}
+}
+
+func (x *exchange) rejected(w http.ResponseWriter, checks *requestCheck, st *model.State, rec *Request) bool {
+	if checks == nil || x.opts.NoRequestValidation || st.SkipRequestValidation {
+		return false
+	}
+	problems := checks.check(x.req, x.body)
+	if len(problems) == 0 {
+		return false
+	}
+	rec.Status, rec.Problem = http.StatusBadRequest, ProblemInvalidRequest
+	rec.Detail = problems[0].At + ": " + problems[0].Message
+	writeJSON(w, rec.Status, invalidRequest{Error: "invalid_request", Route: x.rt.ID, Problems: problems})
+	return true
+}
+
+func route(mux *http.ServeMux, p *model.Project, opts Options, px *proxy, set *schema.Set) error {
+	owners := make(map[string]string, len(p.Routes))
+	graphqlHandlers := map[*model.Route]http.Handler{}
+	for _, rt := range p.Routes {
+		compiled, checks, err := compileRoute(rt, set, p.Schemas)
+		if err != nil {
+			return err
+		}
+		h := serveRoute(rt, opts, px, compiled, checks)
+		if rt.Method == model.MethodGraphQL {
+			graphqlHandlers[rt] = h
+			continue
+		}
+		if err := register(mux, rt, patterns(rt), h, owners); err != nil {
+			return err
+		}
+	}
+	for _, e := range graphqlEndpoints(p.Routes, graphqlHandlers, opts.reporter) {
+		if err := register(mux, &model.Route{ID: "GRAPHQL " + e.path}, []string{"GET " + e.path, "POST " + e.path}, e, owners); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func register(mux *http.ServeMux, rt *model.Route, patterns []string, h http.Handler, owners map[string]string) error {
+	for _, pattern := range patterns {
+		if err := handle(mux, pattern, h); err != nil {
+			return conflictError(rt, pattern, err, owners)
+		}
+		owners[pattern] = rt.ID
+	}
+	return nil
 }

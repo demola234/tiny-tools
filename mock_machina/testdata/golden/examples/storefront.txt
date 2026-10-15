@@ -77,6 +77,10 @@ GET /orders/o_1001/tracking Authorization: Bearer t_1
   → 200 out_for_delivery
 GET /orders/o_1001/tracking Authorization: Bearer t_1
   → 200 delivered
+GET /orders X-Mock-Scenario: new-shopper
+  → 200 none {"orders":[]}
+GET /orders X-Mock-Scenario: new-shoper
+  → 400  {"error":"unknown_scenario","scenario":"new-shoper","valid":["bad-network-day","checkout-fails","new-shopper"],"hint":"did you mean \"new-shopper\"?"}
 DELETE /session
   → 204 signed_out
 DELETE /session

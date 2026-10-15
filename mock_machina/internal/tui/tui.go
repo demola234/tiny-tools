@@ -18,10 +18,11 @@ const (
 )
 
 type Header struct {
-	Project string
-	URL     string
-	Seed    uint64
-	Proxy   string
+	Project   string
+	URL       string
+	Seed      uint64
+	Proxy     string
+	Dashboard string
 }
 
 type Options struct {

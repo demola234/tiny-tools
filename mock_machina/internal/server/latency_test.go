@@ -74,7 +74,7 @@ func TestServer_ClientLeavesDuringLatency(t *testing.T) {
 		}
 		want := server.Request{
 			Method: "GET", Path: "/users", Status: 499, Route: "users.list", State: "slow",
-			Reason: server.ReasonActive, Problem: server.ProblemClientLeft,
+			Reason: server.ReasonActive, Problem: server.ProblemClientLeft, Duration: 100 * time.Millisecond,
 		}
 		if len(got) != 1 || got[0] != want {
 			t.Errorf("reported %+v, want [%+v]", got, want)
@@ -114,4 +114,24 @@ func TestServer_Jitter(t *testing.T) {
 	if !slices.Equal(a, waits(1)) || slices.Equal(a, waits(2)) {
 		t.Error("jitter isn't seeded")
 	}
+}
+
+func TestServer_ReportsHowLongTheRequestTook(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		var got []time.Duration
+		h, err := server.New(slowProject(), server.Options{
+			Clock:  clock.Real{},
+			Report: func(r server.Request) { got = append(got, r.Duration) },
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		do(t, h, http.MethodGet, "/users", nil)
+		do(t, h, http.MethodGet, "/users", map[string]string{"X-Mock-State": "fast"})
+		do(t, h, http.MethodGet, "/nowhere", nil)
+		if want := []time.Duration{800 * time.Millisecond, 0, 0}; !slices.Equal(got, want) {
+			t.Errorf("durations %v, want %v", got, want)
+		}
+	})
 }

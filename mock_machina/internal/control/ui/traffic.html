@@ -1,0 +1,17 @@
+{{define "content"}}<div class="heading split">
+<div>
+<h1>Traffic</h1>
+<p class="lede">Every request the mock answers, which state it got, and why.</p>
+</div>
+<div class="controls">
+<button type="button" class="button" id="traffic-pause" aria-pressed="false">Pause</button>
+<button type="button" class="button" id="traffic-clear">Clear view</button>
+<nav class="tabs" aria-label="Show">
+{{- range .Filters}}
+<a href="{{.Href}}"{{if .Current}} aria-current="page" class="current"{{end}}>{{.Label}}</a>
+{{- end}}
+</nav>
+</div>
+</div>
+<ol id="traffic" class="traffic" sse-swap="request" hx-swap="afterbegin" data-cap="500">{{range .Rows}}{{template "row" .}}{{end}}</ol>
+<p class="empty traffic-empty">No requests yet. Point your app at the mock, or try <code>curl {{.Host}}</code>.</p>{{end}}

@@ -381,6 +381,9 @@ func ExportPostman(p *model.Project, info Info) ([]byte, []byte, error) {
 	c := postmanCollection{Info: postmanInfo{Name: title, Schema: postmanSchema}, Variable: []postmanVariable{{Key: "baseUrl", Value: mockBaseURL}}}
 	index := map[string]int{}
 	for _, r := range p.Routes {
+		if notOpenAPI(r) {
+			continue
+		}
 		i, ok := index[r.Group]
 		if !ok {
 			i = len(c.Item)

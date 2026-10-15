@@ -1,0 +1,52 @@
+{{define "content"}}<div class="heading split">
+<div>
+<h1>Data</h1>
+<p class="lede">Collections remember what your app writes, so a POST shows up on the next GET. Changes stay in memory; files on disk don't change.</p>
+</div>
+<form hx-post="{{.Base}}reset"><button type="submit" class="button">Reset data and counters</button></form>
+</div>
+<div id="data" class="routes">
+{{- with .Collections}}
+<nav class="route-list" aria-label="Collections">
+<ul>
+{{- range .}}
+<li><a href="{{$.Base}}data/{{.Name}}" hx-get="{{$.Base}}data/{{.Name}}" hx-target="#data" hx-select="#data" hx-swap="outerHTML" hx-push-url="true"{{if eq .Name $.Current}} aria-current="page"{{end}}><code class="path">{{.Name}}</code><span></span><span class="serving">{{.Count}} items</span></a></li>
+{{- end}}
+</ul>
+</nav>
+{{- else}}
+<p class="empty">No CRUD collections in this project. A route like <code>route: CRUD /cart</code> keeps one.</p>
+{{- end}}
+<section class="pane" aria-live="polite">
+{{- with .Error}}
+<p class="error" role="alert">{{.}}</p>
+{{- end}}
+{{- with .Table}}
+<header class="pane-head">
+<h2>Collection · <code>{{.Name}}</code></h2>
+{{- with .Seed}}
+<span class="tag">seeded from <code>{{.}}</code></span>
+{{- end}}
+</header>
+<p class="endpoints">
+{{- range .Endpoints}}
+<code class="endpoint">{{.}}</code>
+{{- end}}
+</p>
+{{- if .Rows}}
+<div class="table-wrap">
+<table class="items">
+<thead><tr>{{range .Columns}}<th scope="col">{{.}}</th>{{end}}<th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+<tbody>
+{{- range .Rows}}
+<tr>{{range .Cells}}<td><code>{{.}}</code></td>{{end}}<td><form hx-post="{{.Delete}}" hx-target="#data" hx-select="#data" hx-swap="outerHTML"><button type="submit" class="link-button" aria-label="Delete {{.ID}}">Delete</button></form></td></tr>
+{{- end}}
+</tbody>
+</table>
+</div>
+{{- else}}
+<p class="empty">Empty. Items your app POSTs show up here.</p>
+{{- end}}
+{{- end}}
+</section>
+</div>{{end}}

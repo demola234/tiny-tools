@@ -65,6 +65,9 @@ func (m Model) header(w int) string {
 	if h.Proxy != "" {
 		l.add("  → "+h.Proxy, fg(m.th.dim))
 	}
+	if h.Dashboard != "" {
+		l.add("  dashboard ", fg(m.th.dim)).add(h.Dashboard, fg(m.th.info).Underline(true))
+	}
 
 	for _, r := range m.headerRights() {
 		if rw := r.width(); l.width()+rw+3 <= w {

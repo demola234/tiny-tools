@@ -9,6 +9,7 @@ type Route struct {
 	ID         string
 	Method     Method
 	Path       string
+	Operation  string
 	Summary    string
 	Status     Status
 	Owners     Owners
@@ -45,6 +46,10 @@ const (
 	MethodHead    Method = "HEAD"
 	MethodOptions Method = "OPTIONS"
 	MethodCRUD    Method = "CRUD"
+	MethodWS      Method = "WS"
+	MethodSSE     Method = "SSE"
+	MethodGraphQL Method = "GRAPHQL"
+	MethodGRPC    Method = "GRPC"
 )
 
 var methods = []Method{
@@ -55,6 +60,8 @@ var methods = []Method{
 func Methods() []Method { return slices.Clone(methods) }
 
 func (m Method) Valid() bool { return slices.Contains(methods, m) }
+
+func (m Method) Stream() bool { return m == MethodWS || m == MethodSSE }
 
 type Serve string
 
@@ -68,3 +75,5 @@ type CRUD struct {
 	IDField    string
 	Data       []byte
 }
+
+const ControlPrefix = "/__mockmachina/"

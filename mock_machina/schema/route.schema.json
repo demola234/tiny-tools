@@ -25,15 +25,27 @@
   },
   "additionalProperties": { "$ref": "#/$defs/route" },
   "$defs": {
+    "messages": {
+      "description": "One message, or a list. Inline YAML is sent as JSON; a string is sent as text. Templates work.",
+      "anyOf": [
+        { "type": ["string", "object"] },
+        { "type": "array", "items": { "type": ["string", "object", "array"] } }
+      ]
+    },
     "route": {
       "description": "One route: the request it answers and the states it can respond with.",
       "type": "object",
       "required": ["route", "states"],
       "properties": {
         "route": {
-          "description": "Method and path, e.g. GET /users/{id}. Parameters are whole segments in braces. CRUD /things serves a whole in-memory collection: list, get, create, replace, update and delete.",
+          "description": "Method and path, e.g. GET /users/{id}. Parameters are whole segments in braces. CRUD /things serves a whole in-memory collection: list, get, create, replace, update and delete. WS /path and SSE /path serve a WebSocket or a server-sent event stream; their states use send, reply, every, push and close. GRAPHQL /graphql answers one GraphQL operation, named by operation. GRPC shop.v1.OrderService/GetOrder answers a gRPC method from a .proto file in protos/.",
           "type": "string",
-          "pattern": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CRUD) +/[^?#]*$"
+          "pattern": "^((GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CRUD|WS|SSE|GRAPHQL) +/[^?#]*|GRPC +[A-Za-z_][\\w.]*/[A-Za-z_]\\w*)$"
+        },
+        "operation": {
+          "description": "GRAPHQL routes: the operation name this route answers, from operationName or the query text, like GetUser.",
+          "type": "string",
+          "pattern": "^[_A-Za-z][_0-9A-Za-z]*$"
         },
         "examples": {
           "description": "Values for the path's parameters, used when checking a live API with mockmachina diff --live, e.g. { id: u_1 }.",
@@ -236,6 +248,71 @@
         "generated": {
           "description": "Set by AI assistants on states they write. lint warns until a person reviews the state and deletes this line.",
           "type": "boolean"
+        },
+        "send": {
+          "description": "WS and SSE: messages sent as soon as the client connects. One message or a list, sent in order. Inline YAML is sent as JSON; a string is sent as text.",
+          "$ref": "#/$defs/messages"
+        },
+        "reply": {
+          "description": "WS only: when a client message matches, answer it. The first matching reply wins.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when", "send"],
+            "additionalProperties": false,
+            "properties": {
+              "when": {
+                "description": "Message selectors, like { message.type: ping }, or { message: bye } for a text message.",
+                "type": "object",
+                "additionalProperties": { "$ref": "#/$defs/matcher" }
+              },
+              "send": { "$ref": "#/$defs/messages" }
+            }
+          }
+        },
+        "every": {
+          "description": "WS and SSE: how often to send push, e.g. 2s. Needs push.",
+          "$ref": "#/$defs/duration"
+        },
+        "push": {
+          "description": "WS and SSE: messages sent every interval, cycling through the list. Needs every.",
+          "$ref": "#/$defs/messages"
+        },
+        "grpc": {
+          "description": "GRPC routes: the status to answer with, like NOT_FOUND. Defaults to OK.",
+          "enum": ["OK", "CANCELLED", "UNKNOWN", "INVALID_ARGUMENT", "DEADLINE_EXCEEDED", "NOT_FOUND", "ALREADY_EXISTS", "PERMISSION_DENIED", "RESOURCE_EXHAUSTED", "FAILED_PRECONDITION", "ABORTED", "OUT_OF_RANGE", "UNIMPLEMENTED", "INTERNAL", "UNAVAILABLE", "DATA_LOSS", "UNAUTHENTICATED"]
+        },
+        "message": {
+          "description": "GRPC routes: the error message that goes with a grpc status other than OK.",
+          "type": "string"
+        },
+        "webhooks": {
+          "description": "HTTP routes: requests the mock sends after it answers, like a payment provider's payment.succeeded. Templates work, and set variables tie the response and the webhook together.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["url"],
+            "additionalProperties": false,
+            "properties": {
+              "url": { "description": "Where to send it: http(s)://… or a template like {{ var.hook_url }}/events.", "type": "string" },
+              "method": { "description": "Defaults to POST.", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+              "after": { "description": "Wait this long after the response, e.g. 3s.", "$ref": "#/$defs/duration" },
+              "headers": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean"] } },
+              "body": { "description": "A file in routes/<resource>/, or inline YAML sent as JSON.", "type": ["string", "object", "array"] },
+              "retries": { "description": "Send again this many times while the receiver answers with an error, waiting 1s, 2s, 4s… between tries.", "type": "integer", "minimum": 0, "maximum": 10 }
+            }
+          }
+        },
+        "close": {
+          "description": "WS and SSE: end the stream after a wait. code and reason (WS only) send a close frame; drop: true cuts the connection with none.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "after": { "$ref": "#/$defs/duration" },
+            "code": { "type": "integer", "anyOf": [{ "minimum": 1000, "maximum": 1015 }, { "minimum": 4000, "maximum": 4999 }] },
+            "reason": { "type": "string" },
+            "drop": { "type": "boolean" }
+          }
         }
       },
       "patternProperties": { "^x-": {} },

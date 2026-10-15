@@ -197,3 +197,27 @@ func TestExport_Golden(t *testing.T) {
 	}
 	testkit.Golden(t, exported, "export/awkward.yaml")
 }
+
+func TestExport_SkipsStreamRoutes(t *testing.T) {
+	t.Parallel()
+
+	p := &model.Project{Routes: []*model.Route{
+		{ID: "live.room", Method: model.MethodWS, Path: "/chat", States: model.States{{Name: "ok", State: &model.State{}}}},
+		{ID: "live.events", Method: model.MethodSSE, Path: "/events", States: model.States{{Name: "ok", State: &model.State{}}}},
+		{ID: "api.user", Method: model.MethodGraphQL, Path: "/graphql", Operation: "GetUser", States: model.States{{Name: "ok", State: &model.State{}}}},
+	}}
+	out, err := openapi.Export(p, openapi.Info{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(out), "/chat") || strings.Contains(string(out), "/events") {
+		t.Errorf("stream routes leaked into OpenAPI:\n%s", out)
+	}
+	collection, _, err := openapi.ExportPostman(p, openapi.Info{})
+	if err != nil || strings.Contains(string(collection), "/chat") {
+		t.Errorf("stream routes leaked into Postman: %v\n%s", err, collection)
+	}
+	if got := openapi.Skipped(p); got != 3 || strings.Contains(string(out), "/graphql") {
+		t.Errorf("Skipped = %d, want 2", got)
+	}
+}

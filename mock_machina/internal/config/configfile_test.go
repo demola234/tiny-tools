@@ -21,23 +21,23 @@ func TestLoadFS_ConfigFile(t *testing.T) {
 		{
 			"every field",
 			ptr("version: 1\nhost: 0.0.0.0\nports:\n  mock: 5000\n"),
-			model.Config{Version: 1, Host: "0.0.0.0", Ports: model.Ports{Mock: 5000}, Locale: "en"},
+			model.Config{Version: 1, Host: "0.0.0.0", Ports: model.Ports{Mock: 5000, GRPC: 4002}, Locale: "en"},
 		},
 		{
 			"only the port",
 			ptr("ports: { mock: 8080 }\n"),
-			model.Config{Version: 1, Host: "127.0.0.1", Ports: model.Ports{Mock: 8080}, Locale: "en"},
+			model.Config{Version: 1, Host: "127.0.0.1", Ports: model.Ports{Mock: 8080, GRPC: 4002}, Locale: "en"},
 		},
-		{"localhost", ptr("host: localhost\n"), model.Config{Version: 1, Host: "localhost", Ports: model.Ports{Mock: 4001}, Locale: "en"}},
+		{"localhost", ptr("host: localhost\n"), model.Config{Version: 1, Host: "localhost", Ports: model.Ports{Mock: 4001, GRPC: 4002}, Locale: "en"}},
 		{
 			"seed and locale",
 			ptr("seed: 42\nlocale: en_NG\n"),
-			model.Config{Version: 1, Host: "127.0.0.1", Ports: model.Ports{Mock: 4001}, Seed: 42, Locale: "en_NG"},
+			model.Config{Version: 1, Host: "127.0.0.1", Ports: model.Ports{Mock: 4001, GRPC: 4002}, Seed: 42, Locale: "en_NG"},
 		},
 		{
 			"proxy",
 			ptr("proxy: https://staging.example.com/api\n"),
-			model.Config{Version: 1, Host: "127.0.0.1", Ports: model.Ports{Mock: 4001}, Proxy: "https://staging.example.com/api", Locale: "en"},
+			model.Config{Version: 1, Host: "127.0.0.1", Ports: model.Ports{Mock: 4001, GRPC: 4002}, Proxy: "https://staging.example.com/api", Locale: "en"},
 		},
 	}
 	for _, tc := range tests {

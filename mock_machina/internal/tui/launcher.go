@@ -54,6 +54,18 @@ func NewLauncher(version string, actions []Action) Launcher {
 
 func (l Launcher) Chosen() []string { return l.chosen }
 
+func (l Launcher) Open(name string) Launcher {
+	for _, a := range l.actions {
+		if a.Name == name && len(a.Fields) > 0 {
+			m, _ := l.open(a)
+			if opened, ok := m.(Launcher); ok {
+				return opened
+			}
+		}
+	}
+	return l
+}
+
 func (Launcher) Init() tea.Cmd {
 	return tea.Batch(tea.RequestBackgroundColor, launcherTick())
 }

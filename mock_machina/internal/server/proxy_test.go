@@ -87,7 +87,7 @@ func TestProxy_Routing(t *testing.T) {
 		{Method: "GET", Path: "/users/u_1", Status: 200, Route: "users.get", State: "found", Reason: server.ReasonHeader},
 		{Method: "GET", Path: "/users/u_1", Status: 200, Route: "users.get", State: "found", Reason: server.ReasonQuery},
 	}
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(want, got, ignoreDuration); diff != "" {
 		t.Errorf("reported requests (-want +got):\n%s", diff)
 	}
 	seen.mu.Lock()

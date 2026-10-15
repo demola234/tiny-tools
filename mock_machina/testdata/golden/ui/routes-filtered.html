@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true}'>
+<title>Routes · MockMachina</title>
+<link rel="icon" href="/__mockmachina/ui/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/__mockmachina/ui/static/style.css">
+<script src="/__mockmachina/ui/static/app.js"></script>
+<script src="/__mockmachina/ui/static/htmx.min.js" defer></script>
+<script src="/__mockmachina/ui/static/sse.min.js" defer></script>
+</head>
+<body hx-ext="sse" sse-connect="/__mockmachina/ui/events" data-base="/__mockmachina/ui/">
+<div class="app" id="app" hx-get="/__mockmachina/ui/routes?q=cart" hx-trigger="sse:reload" hx-select="#app" hx-target="this" hx-swap="outerHTML" hx-disinherit="*">
+<aside class="sidebar">
+<a class="brand" href="/__mockmachina/ui/"><span class="logo" aria-hidden="true">M</span><span>MockMachina</span></a>
+<nav aria-label="Views">
+<ul>
+<li><a href="/__mockmachina/ui/"><span>Overview</span></a></li>
+<li><a href="/__mockmachina/ui/routes" aria-current="page"><span>Routes</span><span class="count">3</span></a></li>
+<li><a href="/__mockmachina/ui/traffic"><span>Traffic</span><span class="count">0</span></a></li>
+<li><a href="/__mockmachina/ui/data"><span>Data</span><span class="count">1</span></a></li>
+<li><a href="/__mockmachina/ui/scenarios"><span>Scenarios</span><span class="count">0</span></a></li>
+<li><a href="/__mockmachina/ui/coverage"><span>Coverage</span><span class="count">0%</span></a></li>
+</ul>
+</nav>
+<h2 class="section">Route groups</h2>
+<ul>
+<li><a href="/__mockmachina/ui/routes?group=cart"><span>cart</span><span class="count">1</span></a></li>
+<li><a href="/__mockmachina/ui/routes?group=users"><span>users</span><span class="count">2</span></a></li>
+</ul>
+<button type="button" class="theme" id="theme-toggle">Toggle theme</button>
+</aside>
+<div class="main">
+<header class="topbar">
+<span class="crumb">Routes</span>
+<button type="button" class="search" id="palette-open" aria-keyshortcuts="Meta+K Control+K">Search <kbd>⌘K</kbd></button>
+<span class="pill"><code>127.0.0.1:4001</code></span>
+<span class="pill connection" id="connection" role="status">connecting</span>
+</header>
+<main id="view">
+<div class="heading">
+<h1>Routes</h1>
+<p class="lede">Pick a state to pin it. A pin lasts until you remove it or reset, and never changes your files.</p>
+</div>
+<form id="route-filter" class="filter" action="/__mockmachina/ui/routes" hx-get="/__mockmachina/ui/routes" hx-trigger="input delay:200ms, submit" hx-target="#route-list" hx-select="#route-list" hx-swap="outerHTML" hx-push-url="true">
+<input type="search" name="q" value="cart" placeholder="Filter by id, method or path" aria-label="Filter routes">
+<fieldset class="tabs">
+<legend class="visually-hidden">Protocol</legend>
+<label class="current"><input type="radio" name="protocol" value="" checked>All</label>
+<label><input type="radio" name="protocol" value="HTTP">HTTP</label>
+<label><input type="radio" name="protocol" value="CRUD">CRUD</label>
+</fieldset>
+</form>
+<div id="routes" class="routes">
+<nav id="route-list" class="route-list" aria-label="Routes">
+<h2 class="section">cart</h2>
+<ul>
+<li><a href="/__mockmachina/ui/routes/cart.items" hx-get="/__mockmachina/ui/routes/cart.items" hx-target="#routes" hx-select="#routes" hx-swap="outerHTML" hx-include="#route-filter" hx-push-url="true"><span class="method m-CRUD">CRUD</span><code class="path">/cart</code><span class="serving">ok</span></a></li>
+</ul>
+</nav>
+<section id="route-pane" class="pane" aria-live="polite">
+<p class="empty">Pick a route to see its states.</p>
+</section>
+</div>
+</main>
+</div>
+</div>
+<dialog id="palette" class="palette" aria-label="Search routes and views">
+<input id="palette-input" type="search" name="q" placeholder="Search routes and views" autocomplete="off" hx-get="/__mockmachina/ui/palette" hx-trigger="input changed delay:120ms, focus" hx-target="#palette-results" hx-swap="outerHTML">
+<ul id="palette-results" class="palette-results" role="listbox" aria-label="Results"></ul>
+<p class="meta">↑↓ to move · ↵ to open · esc to close</p>
+</dialog>
+<dialog id="shortcuts" class="palette" aria-labelledby="shortcuts-title">
+<h2 id="shortcuts-title">Keyboard shortcuts</h2>
+<dl class="facts">
+<dt><kbd>⌘K</kbd> or <kbd>Ctrl K</kbd></dt><dd>Search routes and views</dd>
+<dt><kbd>/</kbd></dt><dd>Filter routes, or search</dd>
+<dt><kbd>g</kbd> then <kbd>o</kbd> <kbd>r</kbd> <kbd>t</kbd> <kbd>d</kbd> <kbd>s</kbd> <kbd>c</kbd></dt><dd>Go to Overview, Routes, Traffic, Data, Scenarios or Coverage</dd>
+<dt><kbd>p</kbd></dt><dd>Pause or resume Traffic</dd>
+<dt><kbd>?</kbd></dt><dd>Show these shortcuts</dd>
+<dt><kbd>esc</kbd></dt><dd>Close a dialog</dd>
+</dl>
+<form method="dialog"><button class="button">Close</button></form>
+</dialog>
+</body>
+</html>

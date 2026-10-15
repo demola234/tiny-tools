@@ -31,7 +31,7 @@ func TestCatalog_WithAProject(t *testing.T) {
 	proj := welcomeSession().proj
 	proj.Routes[2].Active = "success"
 	proj.Config.Ports.Mock = 4100
-	actions := catalog(proj)
+	actions := catalog(proj, nil)
 
 	want := []string{
 		"start", "start --plain", "tui", "state set", "state list", "add", "lint", "diff", "diff --live",
@@ -58,7 +58,7 @@ func TestCatalog_WithAProject(t *testing.T) {
 }
 
 func TestCatalog_WithoutAProjectStartsWithInit(t *testing.T) {
-	actions := catalog(nil)
+	actions := catalog(nil, nil)
 	if actions[0].Name != "init" {
 		t.Errorf("first action = %s, want init", actions[0].Name)
 	}
@@ -69,12 +69,22 @@ func TestCatalog_WithoutAProjectStartsWithInit(t *testing.T) {
 
 func TestCatalog_CoversEveryCommand(t *testing.T) {
 	covered := map[string]bool{}
-	for _, a := range catalog(&model.Project{}) {
+	for _, a := range catalog(&model.Project{}, nil) {
 		covered[a.Args[0]] = true
 	}
 	for _, c := range NewRootCmd().Commands() {
 		if c.IsAvailableCommand() && !covered[c.Name()] {
 			t.Errorf("the launcher has no entry for %q", c.Name())
 		}
+	}
+}
+
+func TestCatalog_ImportListsFoundSpecs(t *testing.T) {
+	file := find(t, catalog(nil, []string{"api/openapi.yaml", "petstore.json"}), "import").Fields[0]
+	if diff := cmp.Diff([]string{"api/openapi.yaml", "petstore.json"}, file.Choices); diff != "" {
+		t.Errorf("choices (-want +got):\n%s", diff)
+	}
+	if typed := find(t, catalog(nil, nil), "import").Fields[0]; typed.Choices != nil || typed.Hint == "" {
+		t.Errorf("with no specs found, the file is typed: %+v", typed)
 	}
 }

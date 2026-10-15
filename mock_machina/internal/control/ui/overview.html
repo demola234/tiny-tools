@@ -1,0 +1,30 @@
+{{define "content"}}<div class="heading">
+<h1>Overview</h1>
+<p class="lede">What this mock is serving right now.</p>
+</div>
+<div class="cards">
+<a class="card" href="{{.Base}}routes"><span class="label">Routes</span><strong>{{.Routes}}</strong><span class="sub">{{len .Pins}} pinned</span></a>
+<a class="card" href="{{.Base}}traffic"><span class="label">Requests since start or reset</span><strong>{{.Requests}}</strong><span class="sub{{if .Errors}} bad{{end}}">{{.Errors}} errors</span></a>
+<a class="card" href="{{.Base}}coverage"><span class="label">States served</span><strong>{{.Coverage.Percent}}%</strong><span class="sub">{{.Coverage.Served}} of {{.Coverage.Total}}</span></a>
+<a class="card" href="{{.Base}}scenarios"><span class="label">Scenario</span><strong>{{with .Scenario}}{{.}}{{else}}none{{end}}</strong><span class="sub">{{if .Scenario}}applied until reset{{else}}apply one to switch many routes{{end}}</span></a>
+</div>
+<div class="columns">
+<section class="panel">
+<h2>Newest requests</h2>
+<ol class="traffic compact" sse-swap="request" hx-swap="afterbegin" data-cap="8">{{range .Rows}}{{template "row" .}}{{end}}</ol>
+<p class="empty traffic-empty">No requests yet. Point your app at <code>{{.Host}}</code>.</p>
+<p class="more"><a href="{{.Base}}traffic">All traffic →</a></p>
+</section>
+<section class="panel">
+<h2>Pinned routes</h2>
+{{- with .Pins}}
+<ul class="pins">
+{{- range .}}
+<li><a href="{{$.Base}}routes/{{.ID}}"><span class="method m-{{.Method}}">{{.Method}}</span><code class="path">{{.Path}}</code><span class="serving pinned">{{.State}}</span></a></li>
+{{- end}}
+</ul>
+{{- else}}
+<p class="empty">No pins. Every route answers with its own state.</p>
+{{- end}}
+</section>
+</div>{{end}}

@@ -120,6 +120,8 @@ func selector(r *model.Route, s string) (model.Condition, string) {
 	switch {
 	case !slices.Contains(scopes, scope):
 		return c, fmt.Sprintf("selector %q has an unknown scope %q (%s)", s, scope, closeMatchOr(scope, scopes, "scopes: "+strings.Join(scopes, ", ")))
+	case c.Scope == model.ScopeMessage:
+		return c, s + " only works in a reply; rules run before any message arrives"
 	case c.Scope == model.ScopeCall && key != "":
 		return c, fmt.Sprintf("selector %q takes no name; write call", s)
 	case c.Scope != model.ScopeCall && key == "":

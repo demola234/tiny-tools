@@ -1,0 +1,45 @@
+{{define "content"}}<div id="scenarios">
+<div class="heading">
+<h1>Scenarios</h1>
+<p class="lede">Named situations across many routes. Apply one to put the whole app into it, or send it with one request as a header.</p>
+</div>
+{{- with .Error}}
+<p class="error" role="alert">{{.}}</p>
+{{- end}}
+{{- with .Cards}}
+<div class="scenario-grid">
+{{- range .}}
+<article class="scenario{{if .Applied}} applied{{end}}">
+<header><h2>{{.Title}}</h2>{{if .Applied}}<span class="tag">applied</span>{{end}}</header>
+{{- with .Description}}
+<p class="meta">{{.}}</p>
+{{- end}}
+<ul class="scenario-states">
+{{- range .States}}
+<li><a href="{{$.Base}}routes/{{.ID}}">{{with .Method}}<span class="method m-{{.}}">{{.}}</span>{{end}}<code class="path">{{if .Path}}{{.Path}}{{else}}{{.ID}}{{end}}</code><span class="state">{{.State}}</span></a></li>
+{{- end}}
+</ul>
+<footer>
+<form hx-post="{{$.Base}}scenarios/{{.Name}}/apply" hx-target="#scenarios" hx-select="#scenarios" hx-swap="outerHTML"><button type="submit" class="button primary">{{if .Applied}}Apply again{{else}}Apply{{end}}</button></form>
+<code class="meta">{{.Name}}</code>
+</footer>
+</article>
+{{- end}}
+</div>
+<section class="panel howto">
+<h2>Without the dashboard</h2>
+<p class="meta">One request only, leaving the server as it is:</p>
+<pre data-copy><code>curl -H 'X-Mock-Scenario: {{$.Example}}' http://{{$.Host}}/…</code></pre>
+<p class="meta">For the whole mock, from a test or script:</p>
+<pre data-copy><code>curl -X POST http://{{$.Host}}/__mockmachina/scenarios/{{$.Example}}/apply</code></pre>
+<p class="meta">Applying removes every pin first. Reset forgets the scenario.</p>
+</section>
+{{- else}}
+<p class="empty">No scenarios yet. Add a file to <code>.mockmachina/scenarios/</code>, like this one:</p>
+<pre><code># .mockmachina/scenarios/new-user.yaml
+title: New user
+description: Just signed up, nothing yet.
+states:
+  users.list: empty</code></pre>
+{{- end}}
+</div>{{end}}
