@@ -17,12 +17,14 @@ mockmachina tui            # or serve it with the live screen
 ├── schemas/           Credentials, Session, Me, Product, ProductList, NewOrder, Order, OrderList, Tracking, Error
 ├── data/
 │   └── cart_items.json   the cart's starting contents
+├── scenarios/         new-shopper, checkout-fails, bad-network-day
 └── routes/
     ├── health.yaml    sequential mode
     ├── session.yaml   request validation, rules, variables, templates
     ├── products.yaml  body files, query rules, latency, random mode
     ├── cart.yaml      CRUD, call-count rules, faults
-    └── orders.yaml    header rules, generated bodies, stage-by-stage tracking
+    ├── orders.yaml    header rules, generated bodies, stage-by-stage tracking
+    └── live.yaml      WebSocket chat and server-sent event tracking
 ```
 
 | Route | Feature it shows |
@@ -39,6 +41,8 @@ mockmachina tui            # or serve it with the live screen
 | `GET /orders` | A header rule: no `Authorization` header gives a 401 |
 | `GET /orders/{id}` | `body: generate`, built from the `Order` schema |
 | `GET /orders/{id}/tracking` | `call` rules that move the order on one stage per call |
+| `WS /support/{room}` | WebSocket chat: a welcome on connect, replies to `ping` and to messages (echoing your text), a typing push, a dropped state, and refusals without a token (401) or for room `closed` (404) |
+| `SSE /orders/{id}/live` | Server-sent events: a stage every 3 seconds, then the stream ends; `stream_cut` drops it; `o_404` is refused |
 
 Every file has `owners` and a contract `status` (draft, agreed or implemented), so `diff` can route reviews.
 
@@ -71,6 +75,13 @@ curl -H 'Authorization: Bearer t_1' localhost:4001/orders/o_1001/tracking
                                                # packed, in_transit, out_for_delivery, then delivered
 ```
 
+Live updates:
+
+```sh
+curl -N localhost:4001/orders/o_1001/live                  # SSE: packed, in_transit, out_for_delivery, delivered
+npx wscat -c 'ws://localhost:4001/support/help?token=t_1'  # then type {"type":"ping"}
+```
+
 The full set of requests and answers is in `testdata/golden/examples/storefront.txt`.
 
 ## Switch states
@@ -89,6 +100,26 @@ mockmachina state set products.list server_error
 ```
 
 Or press ⏎ on a state in `mockmachina tui`, or choose **state set** in the launcher.
+
+## Scenarios
+
+Three scenarios put several routes into a situation at once:
+
+| Scenario | What the app sees |
+| --- | --- |
+| `new-shopper` | Signed in with no orders, so the orders screen shows its empty state |
+| `checkout-fails` | Browsing and the cart work, and checkout is too busy to take the order |
+| `bad-network-day` | Slow product lists, a checkout that drops, and live tracking that cuts out |
+
+```sh
+curl -H 'X-Mock-Scenario: new-shopper' localhost:4001/orders         # {"orders":[]}, even without signing in
+curl -X POST localhost:4001/__mockmachina/scenarios/checkout-fails/apply
+curl -X POST localhost:4001/__mockmachina/reset                    # back to normal
+```
+
+## The dashboard
+
+`mockmachina start` prints `dashboard on http://127.0.0.1:4001/__mockmachina/ui/`. Open it to pin states, apply a scenario, look in the cart's collection, watch requests arrive and see which states your app hasn't reached yet. See [the dashboard guide](../../docs/dashboard.md).
 
 ## Replay a run
 

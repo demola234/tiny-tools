@@ -83,10 +83,8 @@ func resolveNames(v any) any {
 }
 
 func compileProblem(err error) (string, string) {
-	var sve *jsonschema.SchemaValidationError
-	if errors.As(err, &sve) {
-		var ve *jsonschema.ValidationError
-		if errors.As(sve.Err, &ve) {
+	if sve, ok := errors.AsType[*jsonschema.SchemaValidationError](err); ok {
+		if ve, ok := errors.AsType[*jsonschema.ValidationError](sve.Err); ok {
 			leaf := deepest(ve)
 			return pointer(leaf.InstanceLocation), Message(leaf.ErrorKind)
 		}

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true}'>
+<title>Overview · MockMachina</title>
+<link rel="icon" href="/__mockmachina/ui/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/__mockmachina/ui/static/style.css">
+<script src="/__mockmachina/ui/static/app.js"></script>
+<script src="/__mockmachina/ui/static/htmx.min.js" defer></script>
+<script src="/__mockmachina/ui/static/sse.min.js" defer></script>
+</head>
+<body hx-ext="sse" sse-connect="/__mockmachina/ui/events" data-base="/__mockmachina/ui/">
+<div class="app" id="app" hx-get="/__mockmachina/ui/" hx-trigger="sse:reload" hx-select="#app" hx-target="this" hx-swap="outerHTML" hx-disinherit="*">
+<aside class="sidebar">
+<a class="brand" href="/__mockmachina/ui/"><span class="logo" aria-hidden="true">M</span><span>MockMachina</span></a>
+<nav aria-label="Views">
+<ul>
+<li><a href="/__mockmachina/ui/" aria-current="page"><span>Overview</span></a></li>
+<li><a href="/__mockmachina/ui/routes"><span>Routes</span><span class="count">2</span></a></li>
+<li><a href="/__mockmachina/ui/traffic"><span>Traffic</span><span class="count">0</span></a></li>
+<li><a href="/__mockmachina/ui/data"><span>Data</span><span class="count">1</span></a></li>
+<li><a href="/__mockmachina/ui/scenarios"><span>Scenarios</span><span class="count">1</span></a></li>
+<li><a href="/__mockmachina/ui/coverage"><span>Coverage</span><span class="count">0%</span></a></li>
+</ul>
+</nav>
+<h2 class="section">Route groups</h2>
+<ul>
+<li><a href="/__mockmachina/ui/routes?group=cart"><span>cart</span><span class="count">1</span></a></li>
+<li><a href="/__mockmachina/ui/routes?group=users"><span>users</span><span class="count">1</span></a></li>
+</ul>
+<button type="button" class="theme" id="theme-toggle">Toggle theme</button>
+</aside>
+<div class="main">
+<header class="topbar">
+<span class="crumb">Overview</span>
+<button type="button" class="search" id="palette-open" aria-keyshortcuts="Meta+K Control+K">Search <kbd>⌘K</kbd></button>
+<span class="pill"><code>127.0.0.1:4001</code></span>
+<span class="pill connection" id="connection" role="status">connecting</span>
+</header>
+<main id="view">
+<div class="heading">
+<h1>Overview</h1>
+<p class="lede">What this mock is serving right now.</p>
+</div>
+<div class="cards">
+<a class="card" href="/__mockmachina/ui/routes"><span class="label">Routes</span><strong>2</strong><span class="sub">0 pinned</span></a>
+<a class="card" href="/__mockmachina/ui/traffic"><span class="label">Requests since start or reset</span><strong>0</strong><span class="sub">0 errors</span></a>
+<a class="card" href="/__mockmachina/ui/coverage"><span class="label">States served</span><strong>0%</strong><span class="sub">0 of 3</span></a>
+<a class="card" href="/__mockmachina/ui/scenarios"><span class="label">Scenario</span><strong>none</strong><span class="sub">apply one to switch many routes</span></a>
+</div>
+<div class="columns">
+<section class="panel">
+<h2>Newest requests</h2>
+<ol class="traffic compact" sse-swap="request" hx-swap="afterbegin" data-cap="8"></ol>
+<p class="empty traffic-empty">No requests yet. Point your app at <code>127.0.0.1:4001</code>.</p>
+<p class="more"><a href="/__mockmachina/ui/traffic">All traffic →</a></p>
+</section>
+<section class="panel">
+<h2>Pinned routes</h2>
+<p class="empty">No pins. Every route answers with its own state.</p>
+</section>
+</div>
+</main>
+</div>
+</div>
+<dialog id="palette" class="palette" aria-label="Search routes and views">
+<input id="palette-input" type="search" name="q" placeholder="Search routes and views" autocomplete="off" hx-get="/__mockmachina/ui/palette" hx-trigger="input changed delay:120ms, focus" hx-target="#palette-results" hx-swap="outerHTML">
+<ul id="palette-results" class="palette-results" role="listbox" aria-label="Results"></ul>
+<p class="meta">↑↓ to move · ↵ to open · esc to close</p>
+</dialog>
+<dialog id="shortcuts" class="palette" aria-labelledby="shortcuts-title">
+<h2 id="shortcuts-title">Keyboard shortcuts</h2>
+<dl class="facts">
+<dt><kbd>⌘K</kbd> or <kbd>Ctrl K</kbd></dt><dd>Search routes and views</dd>
+<dt><kbd>/</kbd></dt><dd>Filter routes, or search</dd>
+<dt><kbd>g</kbd> then <kbd>o</kbd> <kbd>r</kbd> <kbd>t</kbd> <kbd>d</kbd> <kbd>s</kbd> <kbd>c</kbd></dt><dd>Go to Overview, Routes, Traffic, Data, Scenarios or Coverage</dd>
+<dt><kbd>p</kbd></dt><dd>Pause or resume Traffic</dd>
+<dt><kbd>?</kbd></dt><dd>Show these shortcuts</dd>
+<dt><kbd>esc</kbd></dt><dd>Close a dialog</dd>
+</dl>
+<form method="dialog"><button class="button">Close</button></form>
+</dialog>
+</body>
+</html>

@@ -188,11 +188,15 @@ func nextLine(t *testing.T, lines <-chan string) string {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	select {
-	case line := <-lines:
-		return line
-	case <-ctx.Done():
-		t.Fatal("no log line within 5s")
-		return ""
+	for {
+		select {
+		case line := <-lines:
+			if !strings.HasPrefix(line, "dashboard on ") {
+				return line
+			}
+		case <-ctx.Done():
+			t.Fatal("no log line within 5s")
+			return ""
+		}
 	}
 }

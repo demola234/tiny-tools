@@ -147,3 +147,30 @@ func TestMergeContract_SameSpecChangesNothing(t *testing.T) {
 		t.Errorf("re-importing the same spec reported changes: %+v", report)
 	}
 }
+
+func TestMergeContract_SchemaNameTakenByAnotherFile(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), config.DirName)
+	v1 := importText(t, specV1)
+	if _, err := config.WriteContract(dir, v1.Routes, nil); err != nil {
+		t.Fatal(err)
+	}
+	own := filepath.Join(dir, "schemas", "orders.yaml")
+	if err := os.MkdirAll(filepath.Dir(own), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(own, []byte("Pets: { type: array }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := config.MergeContract(dir, v1.Routes, v1.Schemas, false)
+	if err == nil || !strings.Contains(err.Error(), `"Pets"`) || !strings.Contains(err.Error(), "schemas/orders.yaml") {
+		t.Fatalf("err = %v; want it to name the clashing schema and its file", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "schemas", "api.yaml")); err == nil {
+		t.Error("schemas/api.yaml was written despite the clash")
+	}
+	if _, probs, err := config.Load(dir); err != nil || probs.HasErrors() {
+		t.Errorf("the project is broken after a refused import: %v %v", probs, err)
+	}
+}

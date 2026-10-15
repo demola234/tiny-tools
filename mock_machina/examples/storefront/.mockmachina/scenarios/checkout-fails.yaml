@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/demola234/tiny-tools/main/mock_machina/schema/scenario.schema.json
+title: Checkout fails
+description: The shop is too busy to take the order; browsing and the cart still work.
+states:
+  products.list: success
+  cart.items: ok
+  cart.checkout: busy

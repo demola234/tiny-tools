@@ -1,0 +1,8 @@
+{{define "row"}}<li class="row{{if .Failed}} failed{{end}}"><time>{{.Time}}</time><span class="method m-{{.Method}}">{{.Method}}</span><code class="path">{{.Path}}</code><span class="why">{{if .Route}}<a href="{{.Base}}routes/{{.Route}}">{{.State}}</a>{{with .Reason}} · {{.}}{{end}}{{end}}{{range .Tags}} <span class="tag">{{.}}</span>{{end}}</span><span class="status">{{.Status}}</span><span class="ms">{{.Duration}}</span></li>{{end}}
+{{define "palette"}}<ul id="palette-results" class="palette-results" role="listbox" aria-label="Results">
+{{- range .}}
+<li><a href="{{.Href}}" role="option">{{with .Method}}<span class="method m-{{.}}">{{.}}</span>{{end}}<span class="label">{{.Label}}</span><span class="meta">{{.Detail}}</span></a></li>
+{{- else}}
+<li class="empty">Nothing matches.</li>
+{{- end}}
+</ul>{{end}}

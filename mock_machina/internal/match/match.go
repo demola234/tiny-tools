@@ -18,6 +18,7 @@ type Facts struct {
 	Body    any
 	Vars    map[string]any
 	Call    int
+	Message any
 }
 
 func First(rules []model.Rule, f Facts) (int, bool) {
@@ -80,6 +81,11 @@ func Lookup(scope model.Scope, key string, f Facts) (any, bool) {
 		return v, ok
 	case model.ScopeCall:
 		return float64(f.Call), true
+	case model.ScopeMessage:
+		if key == "" {
+			return f.Message, f.Message != nil
+		}
+		return walk(f.Message, key)
 	}
 	return nil, false
 }

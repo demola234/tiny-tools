@@ -80,6 +80,9 @@ func (o *exportOptions) run(cmd *cobra.Command) error {
 		abs, _ := filepath.Abs(dir)
 		title = filepath.Base(filepath.Dir(abs))
 	}
+	if n := openapi.Skipped(p); n > 0 {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: left out %s; %s can't describe WebSocket, SSE, GraphQL or gRPC\n", plural(n, "WS, SSE, GRAPHQL or GRPC route"), o.format)
+	}
 	if o.format == "postman" {
 		return exportPostman(cmd, p, title, o.out)
 	}

@@ -1,7 +1,7 @@
 version: "2"
 
 run:
-  go: "1.25"
+  go: "1.26"
 
 linters:
   default: standard # errcheck, govet, ineffassign, staticcheck, unused
@@ -109,6 +109,10 @@ linters:
       - path: internal/clock/
         linters: [forbidigo]
         text: "time\\."
+      # Compiling a project's .proto files is synchronous and happens inside project
+      # loading, which takes no context.
+      - linters: [contextcheck]
+        text: "protos->Compile` should pass the context parameter|Function `Compile` should pass the context parameter"
       - path: internal/cli/(find|import|lint)\.go
         linters: [forbidigo]
         text: "os\\.Getwd"

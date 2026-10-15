@@ -94,7 +94,7 @@ func TestRules_PickTheState(t *testing.T) {
 		{Method: "GET", Path: "/users/u_1", Status: 419, Route: "users.get", State: "expired", Reason: server.ReasonRule, Rule: 3},
 		{Method: "GET", Path: "/users/u_1", Status: 200, Route: "users.get", State: "found", Reason: server.ReasonActive},
 	}
-	if diff := cmp.Diff(want, got[:4]); diff != "" {
+	if diff := cmp.Diff(want, got[:4], ignoreDuration); diff != "" {
 		t.Errorf("reported (-want +got):\n%s", diff)
 	}
 }

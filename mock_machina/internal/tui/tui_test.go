@@ -438,3 +438,15 @@ func TestAnimation_MascotWaitsForRequests(t *testing.T) {
 		t.Error("the mascot should make way for requests")
 	}
 }
+
+func TestHeader_ShowsTheDashboard(t *testing.T) {
+	t.Parallel()
+
+	opts := (&recorder{}).options()
+	opts.Header.Dashboard = "http://127.0.0.1:4001/__mockmachina/ui/"
+	m := send(t, tui.New(project("success"), opts), tui.Tick(now), tea.WindowSizeMsg{Width: 160, Height: 30})
+	header, _, _ := strings.Cut(frame(m), "\n")
+	if !strings.Contains(header, "http://127.0.0.1:4001  seed 42  dashboard http://127.0.0.1:4001/__mockmachina/ui/") {
+		t.Errorf("header %q has no dashboard URL", header)
+	}
+}

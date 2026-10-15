@@ -15,6 +15,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/demola234/tiny-tools/mock_machina/internal/model"
+	"github.com/demola234/tiny-tools/mock_machina/internal/protos"
 )
 
 const (
@@ -26,8 +27,8 @@ const (
 )
 
 var (
-	routeFields = []string{"route", "examples", "summary", "status", "owners", "request", "responses", "active", "mode", "rules", "serve", "crud", "generated", "states"}
-	stateFields = []string{"status", "headers", "body", "latency", "fault", "set", "template", "validateRequest", "generated"}
+	routeFields = []string{"route", "operation", "examples", "summary", "status", "owners", "request", "responses", "active", "mode", "rules", "serve", "crud", "generated", "states"}
+	stateFields = []string{"status", "headers", "body", "latency", "fault", "set", "template", "validateRequest", "generated", "send", "reply", "every", "push", "close", "webhooks", "grpc", "message"}
 	ownerFields = []string{"backend", "frontend"}
 	fileFields  = []string{"owners", "status"}
 
@@ -41,8 +42,7 @@ func Load(dir string) (*model.Project, Problems, error) { return LoadFS(os.DirFS
 
 func LoadFS(fsys fs.FS) (*model.Project, Problems, error) {
 	if _, err := fs.Stat(fsys, "."); err != nil {
-		var pathErr *fs.PathError
-		if errors.As(err, &pathErr) {
+		if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
 			err = pathErr.Err
 		}
 		return nil, nil, err
@@ -55,6 +55,7 @@ func LoadFS(fsys fs.FS) (*model.Project, Problems, error) {
 	l := &loader{fsys: fsys}
 	p := &model.Project{Config: l.config()}
 	p.Schemas = l.schemas()
+	p.Protos = l.protos()
 	for _, e := range entries {
 		name := e.Name()
 		if strings.HasPrefix(name, ".") || e.IsDir() {
@@ -69,6 +70,7 @@ func LoadFS(fsys fs.FS) (*model.Project, Problems, error) {
 	}
 	slices.SortFunc(p.Routes, func(a, b *model.Route) int { return strings.Compare(a.ID, b.ID) })
 	l.checkDuplicates(p.Routes)
+	p.Scenarios = l.scenarios(p)
 	if l.schemasOK {
 		l.checkBodies(p)
 	}
@@ -77,11 +79,13 @@ func LoadFS(fsys fs.FS) (*model.Project, Problems, error) {
 }
 
 type loader struct {
-	fsys        fs.FS
-	probs       Problems
-	data        map[string][]byte
-	schemaNames []string
-	schemasOK   bool
+	fsys         fs.FS
+	probs        Problems
+	data         map[string][]byte
+	schemaNames  []string
+	schemasOK    bool
+	protoSet     *protos.Set
+	protoSources map[string]string
 }
 
 func (l *loader) add(file string, line int, format string, args ...any) {
@@ -168,6 +172,8 @@ func (l *loader) route(res resource, key, node *yaml.Node) *model.Route {
 		}
 	}
 	l.request(f, r)
+	l.grpcRoute(f, r)
+	l.operation(f, r)
 	l.examples(f, r)
 	l.metadata(f, r)
 	l.behavior(f, r)
@@ -190,6 +196,9 @@ func (l *loader) request(f map[string]*yaml.Node, r *model.Route) {
 		return
 	}
 	r.Method, r.Path = model.Method(method), p
+	if r.Method == model.MethodGRPC {
+		return
+	}
 	if r.Method == model.MethodCRUD {
 		if strings.HasSuffix(p, "}") {
 			l.add(r.Src.File, v.Line, "a CRUD route's path names the collection, like CRUD /things; it adds /{id} itself")
@@ -275,7 +284,7 @@ func (l *loader) boolean(file, field string, v *yaml.Node) bool {
 func (l *loader) behavior(f map[string]*yaml.Node, r *model.Route) {
 	file := r.Src.File
 	if v := f["states"]; v != nil {
-		r.States = l.states(file, r.Dir, v)
+		r.States = l.states(file, r.Dir, r, v)
 	}
 	v := f["active"]
 	if v == nil {
@@ -397,10 +406,11 @@ func (l *loader) checkMethod(file string, line int, method string) {
 }
 
 func methodProblem(method string) string {
+	upper := model.Method(strings.ToUpper(method))
 	switch {
-	case model.Method(method).Valid():
+	case model.Method(method).Valid(), model.Method(method).Stream(), model.Method(method) == model.MethodGraphQL, model.Method(method) == model.MethodGRPC:
 		return ""
-	case model.Method(strings.ToUpper(method)).Valid():
+	case upper.Valid(), upper.Stream(), upper == model.MethodGraphQL, upper == model.MethodGRPC:
 		return fmt.Sprintf("method %q must be uppercase: %s", method, strings.ToUpper(method))
 	}
 	methods := make([]string, 0, len(model.Methods()))
@@ -410,7 +420,7 @@ func methodProblem(method string) string {
 	return fmt.Sprintf("method %q isn't an HTTP method (expected one of: %s)", method, strings.Join(methods, ", "))
 }
 
-func (l *loader) states(file, dir string, node *yaml.Node) model.States {
+func (l *loader) states(file, dir string, r *model.Route, node *yaml.Node) model.States {
 	if node.Kind != yaml.MappingNode {
 		l.add(file, node.Line, "%q must map state names to their responses", "states")
 		return nil
@@ -428,12 +438,13 @@ func (l *loader) states(file, dir string, node *yaml.Node) model.States {
 		case !model.ValidStateName(name):
 			l.add(file, key.Line, "state %q must use lowercase letters, digits and underscores, starting with a letter", name)
 		}
-		states = append(states, model.NamedState{Name: name, State: l.state(file, dir, key, val)})
+		states = append(states, model.NamedState{Name: name, State: l.state(file, dir, r, key, val)})
 	}
 	return states
 }
 
-func (l *loader) state(file, dir string, key, node *yaml.Node) *model.State {
+func (l *loader) state(file, dir string, r *model.Route, key, node *yaml.Node) *model.State {
+	method := r.Method
 	st := &model.State{Src: model.Source{File: file, Line: key.Line}}
 	if isNull(node) {
 		return st
@@ -475,6 +486,12 @@ func (l *loader) state(file, dir string, key, node *yaml.Node) *model.State {
 	if !st.Verbatim {
 		l.templates(file, f, st)
 	}
+	l.stream(file, method, f, st)
+	if v := f["webhooks"]; v != nil {
+		st.Webhooks = l.webhooks(file, dir, method, v)
+	}
+	l.grpcStatus(file, method, f, st)
+	l.grpcState(file, r, f, st)
 	return st
 }
 
@@ -564,13 +581,20 @@ func (l *loader) body(file, dir string, node *yaml.Node) model.Body {
 
 func (l *loader) checkDuplicates(routes []*model.Route) {
 	owners := make(map[string]string, len(routes))
+	graphql := map[string]string{}
 	for _, r := range routes {
 		if r.Method == "" || r.Path == "" {
 			continue
 		}
-		key := r.Key()
+		if l.graphqlClash(r, owners, graphql) {
+			continue
+		}
+		key, note := r.Key(), ""
+		if r.Method.Stream() {
+			key, note = "GET"+strings.TrimPrefix(key, string(r.Method)), " (WS and SSE routes are served on GET)"
+		}
 		if first, taken := owners[key]; taken {
-			l.add(r.Src.File, r.Src.Line, "%s is already defined by route %q", key, first)
+			l.add(r.Src.File, r.Src.Line, "%s is already defined by route %q%s", key, first, note)
 			continue
 		}
 		owners[key] = r.ID
@@ -587,4 +611,45 @@ func pairs(node *yaml.Node) func(yield func(key, val *yaml.Node) bool) {
 			}
 		}
 	}
+}
+
+var graphqlName = regexp.MustCompile(`^[_A-Za-z][_0-9A-Za-z]*$`)
+
+func (l *loader) operation(f map[string]*yaml.Node, r *model.Route) {
+	v := f["operation"]
+	switch {
+	case r.Method != model.MethodGraphQL && v != nil:
+		l.add(r.Src.File, v.Line, "operation only works on GRAPHQL routes")
+	case r.Method != model.MethodGraphQL:
+	case v == nil:
+		l.add(r.Src.File, r.Src.Line, "route %q needs %q: the GraphQL operation name it answers, like operation: GetUser", strings.TrimPrefix(r.ID, r.Group+"."), "operation")
+	case !graphqlName.MatchString(v.Value):
+		l.add(r.Src.File, v.Line, "operation %q isn't a GraphQL name; use letters, digits and underscores, like GetUser", v.Value)
+	default:
+		r.Operation = v.Value
+	}
+}
+
+func (l *loader) graphqlClash(r *model.Route, owners, graphql map[string]string) bool {
+	if r.Method == model.MethodGraphQL {
+		key := "GRAPHQL " + r.Path + " " + r.Operation
+		if first, taken := owners[key]; taken {
+			l.add(r.Src.File, r.Src.Line, "%s is already defined by route %q", key, first)
+			return true
+		}
+		owners[key] = r.ID
+		for _, m := range []string{"GET ", "POST "} {
+			if first, taken := owners[m+r.Path]; taken {
+				l.add(r.Src.File, r.Src.Line, "GRAPHQL %s can't share its path with route %q (%s%s)", r.Path, first, m, r.Path)
+				return true
+			}
+		}
+		graphql[r.Path] = r.ID
+		return true
+	}
+	if owner, taken := graphql[r.Path]; taken && (r.Method == model.MethodGet || r.Method == model.MethodPost || r.Method.Stream()) {
+		l.add(r.Src.File, r.Src.Line, "%s %s is already served by GRAPHQL route %q", r.Method, r.Path, owner)
+		return true
+	}
+	return false
 }

@@ -19,8 +19,9 @@ func Locales() []string { return slices.Clone(locales) }
 
 type Ports struct {
 	Mock int
+	GRPC int
 }
 
 func DefaultConfig() Config {
-	return Config{Version: ConfigVersion, Host: "127.0.0.1", Ports: Ports{Mock: 4001}, Locale: "en"}
+	return Config{Version: ConfigVersion, Host: "127.0.0.1", Ports: Ports{Mock: 4001, GRPC: 4002}, Locale: "en"}
 }

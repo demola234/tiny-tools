@@ -68,7 +68,7 @@ func MergeContract(dir string, routes []*model.Route, schemas []*model.Schema, d
 	if err := m.add(added); err != nil {
 		return MergeReport{}, err
 	}
-	if err := m.schemas(schemas); err != nil {
+	if err := m.schemas(schemas, existing.Schemas); err != nil {
 		return MergeReport{}, err
 	}
 	rep.Files = slices.Sorted(maps.Keys(m.files))
@@ -280,13 +280,16 @@ func (m *merger) add(routes []*model.Route) error {
 	return nil
 }
 
-func (m *merger) schemas(schemas []*model.Schema) error {
+func (m *merger) schemas(schemas, existing []*model.Schema) error {
 	if len(schemas) == 0 {
 		return nil
 	}
 	f, err := renderSchemas(schemas)
 	if err != nil {
 		return err
+	}
+	if clashes := schemaClashes(schemas, existing, f.name); len(clashes) > 0 {
+		return fmt.Errorf("the spec defines schemas the project already has in other files; rename one of each before importing:\n  %s", strings.Join(clashes, "\n  "))
 	}
 	current, err := m.read(f.name)
 	if err != nil {
@@ -296,6 +299,18 @@ func (m *merger) schemas(schemas []*model.Schema) error {
 		m.files[f.name] = f.data
 	}
 	return nil
+}
+
+func schemaClashes(imported, existing []*model.Schema, file string) []string {
+	var clashes []string
+	for _, s := range imported {
+		for _, e := range existing {
+			if e.Name == s.Name && e.Src.File != file {
+				clashes = append(clashes, fmt.Sprintf("schema %q is already defined in %s:%d", s.Name, e.Src.File, e.Src.Line))
+			}
+		}
+	}
+	return clashes
 }
 
 func (m *merger) write() error {

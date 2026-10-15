@@ -36,16 +36,17 @@ type Condition struct {
 type Scope string
 
 const (
-	ScopePath   Scope = "path"
-	ScopeQuery  Scope = "query"
-	ScopeHeader Scope = "header"
-	ScopeCookie Scope = "cookie"
-	ScopeBody   Scope = "body"
-	ScopeVar    Scope = "var"
-	ScopeCall   Scope = "call"
+	ScopePath    Scope = "path"
+	ScopeQuery   Scope = "query"
+	ScopeHeader  Scope = "header"
+	ScopeCookie  Scope = "cookie"
+	ScopeBody    Scope = "body"
+	ScopeVar     Scope = "var"
+	ScopeCall    Scope = "call"
+	ScopeMessage Scope = "message"
 )
 
-var scopes = []Scope{ScopePath, ScopeQuery, ScopeHeader, ScopeCookie, ScopeBody, ScopeVar, ScopeCall}
+var scopes = []Scope{ScopePath, ScopeQuery, ScopeHeader, ScopeCookie, ScopeBody, ScopeVar, ScopeCall, ScopeMessage}
 
 func Scopes() []Scope { return slices.Clone(scopes) }
 

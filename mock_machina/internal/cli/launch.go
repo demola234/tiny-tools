@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"context"
+	"io"
 	"os"
 	"slices"
 	"strconv"
@@ -21,7 +22,7 @@ var (
 	httpsField  = tui.Field{Label: "HTTPS", Flag: "--https", Toggle: true}
 )
 
-func catalog(proj *model.Project) []tui.Action {
+func catalog(proj *model.Project, specs []string) []tui.Action {
 	port := strconv.Itoa(model.DefaultConfig().Ports.Mock)
 	if proj != nil && proj.Config.Ports.Mock != 0 {
 		port = strconv.Itoa(proj.Config.Ports.Mock)
@@ -56,7 +57,7 @@ func catalog(proj *model.Project) []tui.Action {
 			{Label: "Send writes too", Flag: "--include-writes", Toggle: true},
 		}},
 		{Name: "import", Short: "Import an OpenAPI spec or Postman collection", Args: []string{"import"}, Fields: []tui.Field{
-			{Label: "File", Required: true, Hint: "openapi.yaml"},
+			specField(specs),
 			{Label: "Dry run", Flag: "--dry-run", Toggle: true},
 		}},
 		{Name: "export", Short: "Export the contract as OpenAPI or Postman", Args: []string{"export"}, Fields: []tui.Field{
@@ -82,6 +83,14 @@ func catalog(proj *model.Project) []tui.Action {
 		return slices.Concat([]tui.Action{initAction}, actions)
 	}
 	return slices.Concat(actions, []tui.Action{initAction})
+}
+
+func specField(specs []string) tui.Field {
+	f := tui.Field{Label: "File", Required: true, Choices: specs}
+	if len(specs) == 0 {
+		f.Hint = "no spec found here; type a path, like api/openapi.yaml"
+	}
+	return f
 }
 
 func stateField(proj *model.Project) tui.Field {
@@ -120,17 +129,19 @@ func launch(ctx context.Context, env Env) ([]string, error) {
 			proj = p
 		}
 	}
-	p := tea.NewProgram(tui.NewLauncher(env.Info.Version, catalog(proj)),
-		tea.WithContext(ctx), tea.WithInput(env.Stdin), tea.WithOutput(env.Stdout))
-	final, err := p.Run()
+	return pick(ctx, env.Stdin, env.Stdout, tui.NewLauncher(env.Info.Version, catalog(proj, specsHere())))
+}
+
+func pick(ctx context.Context, in io.Reader, out io.Writer, l tui.Launcher) ([]string, error) {
+	final, err := tea.NewProgram(l, tea.WithContext(ctx), tea.WithInput(in), tea.WithOutput(out)).Run()
 	if err != nil {
 		return nil, err
 	}
-	l, _ := final.(tui.Launcher)
-	args := l.Chosen()
+	chosen, _ := final.(tui.Launcher)
+	args := chosen.Chosen()
 	if args != nil {
 		var s lipgloss.Style
-		_, _ = lipgloss.Fprintln(env.Stdout, s.Faint(true).Render("$ mockmachina "+tui.Quote(args)))
+		_, _ = lipgloss.Fprintln(out, s.Faint(true).Render("$ mockmachina "+tui.Quote(args)))
 	}
 	return args, nil
 }

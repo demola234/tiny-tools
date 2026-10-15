@@ -37,12 +37,10 @@ func ExitCode(err error) int {
 	if err == nil {
 		return ExitOK
 	}
-	var exitErr *ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*ExitError](err); ok {
 		return exitErr.Code
 	}
-	var usageErr *usageError
-	if errors.As(err, &usageErr) {
+	if _, ok := errors.AsType[*usageError](err); ok {
 		return ExitUsage
 	}
 	return ExitFailure

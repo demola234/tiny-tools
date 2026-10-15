@@ -1,0 +1,53 @@
+status: draft
+owners: { backend: [ademola], frontend: [ada] }
+
+chat:
+  route: WS /support/{room}
+  summary: "Support chat: send {\"type\":\"ping\"} for a pong, or a message for an answer"
+  rules:
+    - when: { query.token: { exists: false } }
+      state: unauthorized
+    - when: { path.room: closed }
+      state: not_found
+  states:
+    online:
+      send:
+        - { type: welcome, room: "{{ path.room }}", agent: "{{ fake.person.first_name }}" }
+      reply:
+        - when: { message.type: ping }
+          send: { type: pong }
+        - when: { message.type: message }
+          send: { type: message, from: agent, text: "Thanks, noted: {{ message.text }}" }
+      every: 15s
+      push: { type: typing, from: agent }
+    dropped:
+      send: { type: welcome, room: "{{ path.room }}" }
+      close: { after: 5s, drop: true }
+    unauthorized:
+      status: 401
+      body: { error: sign in first }
+    not_found:
+      status: 404
+      body: { error: no such room }
+
+tracking:
+  route: SSE /orders/{id}/live
+  summary: Live delivery updates for an order, one stage every 3 seconds
+  rules:
+    - when: { path.id: o_404 }
+      state: not_found
+  states:
+    on_the_way:
+      send: { order: "{{ path.id }}", stage: packed }
+      every: 3s
+      push:
+        - { order: "{{ path.id }}", stage: in_transit, eta: "{{ fake.date.future }}" }
+        - { order: "{{ path.id }}", stage: out_for_delivery }
+        - { order: "{{ path.id }}", stage: delivered }
+      close: { after: 10s }
+    stream_cut:
+      send: { order: "{{ path.id }}", stage: packed }
+      close: { after: 2s, drop: true }
+    not_found:
+      status: 404
+      body: { error: order not found }

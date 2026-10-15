@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · MockMachina</title>
+<link rel="icon" href="{{.Base}}static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="{{.Base}}static/style.css">
+</head>
+<body>
+<main class="locked">
+<span class="logo" aria-hidden="true">M</span>
+<h1>MockMachina dashboard</h1>
+<p class="lede">{{.Message}}</p>
+{{- with .Problem}}
+<p class="error" role="alert">{{.}}</p>
+{{- end}}
+{{- if .Form}}
+<form method="post" action="{{.Base}}login" class="login">
+<label for="token">Token</label>
+<input id="token" name="token" type="password" autocomplete="current-password" required autofocus>
+<button type="submit" class="button primary">Open the dashboard</button>
+</form>
+{{- end}}
+</main>
+</body>
+</html>

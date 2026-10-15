@@ -16,10 +16,12 @@ Every phase section answers the same questions: what it delivers and doesn't, wh
 | 3 | v0.3 | Diff, breaking changes, GitHub Action, verify, proxy | Built; manual checks left (`verify` became `diff --live`; recording left out) |
 | 4 | v0.4 | MCP server, AI draft and suggest | Built; manual checks left |
 | 5 | v0.5 | Latency, faults, fake data, rules, CRUD | Built; release left |
-| 6 | v0.6 | WebSocket, SSE, gRPC, webhooks, Graphql | Later |
+| 6 | v0.6 | WebSocket, SSE, webhooks, GraphQL and gRPC | Built; ships in 0.2.0 |
 | 7 | v0.7 | TUI, Docker, releases, HTTPS | Built; release, Docker build and device checks left |
-| 8 | v0.8 | Control API and live events | Later |
-| 9 | v0.9 | Web dashboard | Later |
+| 8 | v0.8 | Control API and live events | Built; ships in 0.2.0 |
+| 9 | v0.9 | Web dashboard, scenarios, coverage | Built; ships in 0.2.0 after the Safari and Firefox checks |
+
+Phases 6, 8 and 9 ship together as 0.2.0: `CHANGELOG.md` keeps them under `[Unreleased]` until the release, and renaming that heading to `[0.2.0] - <date>` on `main` makes the release workflow tag it. A dry run on 2026-10-15 built every archive, the formula and the Scoop manifest, and the macOS arm64 binary served the dashboard.
 
 Scope and ordering come from the [implementation plan](https://claude.ai/code/artifact/780af24a-0683-4734-9dfd-ffda4546ab2a). When this playbook changes a decision, the plan is updated too.
 
@@ -253,7 +255,7 @@ Phase 0 keeps dependencies to the minimum the loader and CLI need. Every later d
 
 | Dependency | Why | Notes |
 | --- | --- | --- |
-| Go 1.25+ | Language and toolchain | 1.25 brings `testing/synctest`, used from Phase 1 for timing tests |
+| Go 1.26+ | Language and toolchain | 1.25 brought `testing/synctest`, used from Phase 1 for timing tests. Raised to 1.26 on 2026-10-15 for the `golang.org/x/net` HTTP/2 security fixes |
 | `github.com/spf13/cobra` | Command tree and flags |  |
 | `charm.land/fang/v2` | Styled help, errors, `--version`, completions | Experimental per its authors; isolated in `main.go` |
 | `charm.land/log/v2` | Readable log and error output |  |
@@ -1400,6 +1402,54 @@ Tasks 2–4 can start without 1 if `random` waits. Tasks 7 and 8 are independent
 
 **Answered (2026-10-07):** template syntax uses rule selectors (P5-1); fake data comes from built-in `en` and `en_NG` lists (P5-3); CRUD data stays in memory (P5-9).
 
+## Phase 6: WebSocket and server-sent events (v0.6)
+
+### Goal and scope
+
+Apps with live features (chat, order tracking, notifications) can build against the mock: connect, get a welcome, receive pushed updates, have their messages answered, and see the connection drop. gRPC, webhooks and GraphQL wait for a later pass.
+
+**In scope**
+
+- `route: WS /path` and `route: SSE /path`, with path parameters, rules on connect, and every way of choosing a state that HTTP routes have (`X-Mock-State`, `?__state=`, rules, `active`, modes).
+- Stream fields on a state, written as event blocks:
+  - `send`: messages sent as soon as the client connects, in order;
+  - `reply` (WebSocket only): a list of `{ when, send }`; when a client message matches, the mock answers;
+  - `every` with `push`: messages sent on a timer, cycling through the list;
+  - `close: { after, code, reason }` ends the stream; `close: { after, drop: true }` cuts the connection with no close frame.
+- A message is inline YAML (sent as JSON) or a string (sent as text). Templates work in messages, plus `{{ message.x }}` in replies.
+- `status` 400 or more refuses the connection with that HTTP response, so apps can test an expired token. `latency` and `fault` apply before the connection opens.
+- `lint` checks every field, message templates, `when` selectors (`message.type`), and pairs `every` with `push`.
+- The log line, terminal screen and request report show stream connections.
+- Docs: a section in the file format, and the storefront example gets a chat room and live order tracking.
+
+**Out of scope**
+
+- SSE event names and ids, binary WebSocket frames, subprotocols.
+- Checking messages against schemas, AsyncAPI import and export (export skips stream routes with a note), `diff` of stream fields.
+- gRPC, webhooks and GraphQL.
+
+### Decisions
+
+| # | Question | Decision | Why |
+| --- | --- | --- | --- |
+| P6-1 | How a state describes a stream | Event blocks (`send`, `reply`, `every` + `push`, `close`), chosen on 2026-10-13 | Short, covers chat, live updates, pings and drops, and each field can be linted |
+| P6-2 | WebSocket library | `github.com/coder/websocket` v1.8.x | Context-aware, small, no dependencies, Go 1.23 floor |
+| P6-3 | Routing | WS and SSE routes are served on `GET path`, so they can't share a path with a GET route | One handler per pattern, as the router needs |
+| P6-4 | Origins | WebSocket accepts any origin unless `--no-cors` | Matches the CORS default for HTTP routes |
+
+### Build order
+
+| # | Task | Done when | Status |
+| --- | --- | --- | --- |
+| 1 | Model and loader: WS and SSE methods, stream fields, `message` selector, lint checks, route schema | One fixture and golden problem per check | Done |
+| 2 | SSE serving: state choice, send, every/push, close, refusal | A real HTTP client reads the expected events | Done |
+| 3 | WebSocket serving: same plus reply and drop | A real WebSocket client sees welcome, reply, push and close codes | Done; tests run under -race |
+| 4 | Log line, terminal screen, export note | Connections show in `start` and `tui` | Done: the log shows WS/SSE with 101 or 200; export and Postman leave stream routes out with a note |
+| 5 | Docs and the storefront example | Example lints clean; a test drives its chat and tracking | Done: file-format section (its example is loaded by the doc test), storefront `live.yaml`, README, changelog |
+| 6 | Webhooks: `webhooks` on a state (url, method, after, headers, body, retries), sent after the response, logged per attempt | A real receiver gets the body with the response's id; retries stop at the first 2xx | Done |
+| 7 | GraphQL: `GRAPHQL` routes with `operation`, dispatch by operation name over POST and GET, variables through `body.variables`, unknown operations as GraphQL errors | Operations dispatch from operationName and from query text; rules on variables pick states | Done |
+| 8 | gRPC: protos compiled with protocompile, `GRPC` routes for unary and server-streaming methods, `grpc`/`message` status, `x-mock-state` metadata, reflection, its own port with live reload | A real gRPC client gets bodies, statuses and a stream; `start` serves it and a saved change reaches it | Done. Client streaming and TLS for gRPC are left out |
+
 ## Phase 7: Packaging and a terminal UI (v0.7)
 
 ### Goal and scope
@@ -1484,3 +1534,276 @@ It's the same server as `start`, with the same flags. Only the screen differs.
 | 6 | `internal/tui` model: routes pane, states, requests pane, keys | Frame goldens for each view; key handling tests | Done. Styled with Lip Gloss (light and dark palettes from the terminal background) and animated from one clock: breathing live dot, request-rate sparkline, new requests flash and fade, spinner then ✓ toast on a state switch, pop on the new active state, blinking filter cursor. Ticks every 50 ms while something moves, 200 ms otherwise. Layout goldens are ANSI-stripped; one colored golden locks the look. Request details show method, path, status, route:state and note (latency and body would need the server to report them) |
 | 7 | Wire the UI into the server: request stream, state switching, reload and problems | Switching a state in the UI changes the next response (test) | Done: `mockmachina tui` shares start's flags and session; Enter calls `config.SetActive`, reloads and problems stream to the screen; end-to-end test switches a state through the keyboard and checks the next response. Later: `start` opens the screen in a terminal (`--plain` for log lines), a welcome card, and a command launcher for bare `mockmachina` |
 | 8 | Docs: install, Docker, HTTPS; mobile setup over HTTPS; changelog | Pages exist and examples run | Done: docs/install.md (Homebrew, Scoop, script, Go, Docker and Compose), docs/https.md (local CA, every device, Flutter on Android, Docker, removal, troubleshooting), HTTPS in mobile setup, quickstart, README, changelog |
+
+## Phase 8: Control API and live events (v0.8)
+
+### Goal and scope
+
+Tests, scripts and (later) the dashboard drive a running mock over HTTP: see its routes, switch a route's state, put everything back to how it started, and watch requests as they happen. A Flutter integration test can flip `users.list` to `empty` before a step and reset afterwards, with no file edits and no restart.
+
+**In scope**
+
+- The API lives on the mock's own port under `/__mockmachina/`:
+  - `GET /__mockmachina/routes` and `GET /__mockmachina/routes/{id}`: every route with its method, path, mode, active state, state names and any runtime pin;
+  - `PUT /__mockmachina/routes/{id}/state` with `{"state": "empty"}`: pins the route to that state until reset or restart; `"persist": true` writes it to the routes file like `state set` instead;
+  - `DELETE /__mockmachina/routes/{id}/state`: removes the pin;
+  - `POST /__mockmachina/reset`: clears pins, call counts, variables and CRUD collections;
+  - `GET /__mockmachina/events`: server-sent events, one `request` event per request the mock answers (HTTP, streams, GraphQL, gRPC, webhooks).
+- Errors are JSON with a hint, like the mock's own: an unknown route or state names the closest match.
+- Access: requests from this machine need nothing. Requests from other machines need `Authorization: Bearer <token>`; the token comes from `MOCKMACHINA_CONTROL_TOKEN`, or `start` makes one and prints it when `--host` isn't a loopback address. Requests carrying a browser `Origin` from another site are refused.
+- A route path under `/__mockmachina/` is a load error.
+- Docs: `docs/control-api.md`, and a snippet for Flutter integration tests.
+
+**Out of scope**
+
+- The dashboard (Phase 9), editing routes or bodies over the API, CORS for the control API, gRPC endpoints for control.
+
+### Decisions
+
+| # | Question | Decision | Why |
+| --- | --- | --- | --- |
+| P8-1 | Where the API lives | Same port, under `/__mockmachina/`, chosen on 2026-10-14 | Nothing new to open, map in Docker or forward to a phone |
+| P8-2 | What a state switch does | Runtime pin by default; `persist: true` writes the file, chosen on 2026-10-14 | Test suites switch states often and shouldn't touch files or git status. This departs from Phase 1's "state set writes a file" rule on purpose; `persist` keeps that path for the dashboard |
+| P8-3 | Protection | Loopback is open; other machines need a bearer token, chosen on 2026-10-14 | Same model as `mcp --http`; `--host 0.0.0.0` on café Wi-Fi shouldn't let anyone flip states |
+| P8-4 | Where pins live | In the server's memory with call counts and variables | Pins survive hot reloads, and reset clears everything in one place |
+| P8-5 | Pin precedence | `X-Mock-State` and `?__state=` win over a pin; a pin wins over rules, modes and `active` | A single request can still ask for a state; the pin is the new default |
+| P8-6 | Slow event listeners | Each listener has a buffer of 64; when it's full, events for that listener are dropped | Publishing never waits on a listener, as Phase 1 requires |
+
+### Build order
+
+| # | Task | Done when | Status |
+| --- | --- | --- | --- |
+| 1 | Pins and reset in server memory; `control` reason | A pinned route answers with its pin, a header still wins, reset restarts sequences and clears pins | Done |
+| 2 | Reserved prefix in the loader | A route under `/__mockmachina/` is a problem with file:line | Done |
+| 3 | `control` package: routes, pin, unpin, persist, reset, JSON errors with hints | One test per endpoint and error | Done |
+| 4 | Events hub and SSE endpoint | A subscriber reads a request event; a full listener never blocks publishing | Done |
+| 5 | Access: loopback, token, origin | Tests for each case | Done |
+| 6 | Wire into `start` and `tui`: mount, token note, reload swaps the project, events close on shutdown | `start` serves the API and a pin changes the next response | Done; the pin survives a reload and the event stream ends on Ctrl+C |
+| 7 | Docs and changelog | `docs/control-api.md` with curl and Flutter examples | Done |
+
+## Phase 9: Web dashboard (v0.9)
+
+### Goal and scope
+
+Someone running a mock opens `http://localhost:4001/__mockmachina/ui/` in a browser and manages it there. They see every route and its states, switch states, apply a scenario, look at the CRUD data, see which states the app has reached, and watch requests arrive live. The page is part of the binary and needs no install, no build step and no network.
+
+The design follows the dashboard mockup the user shared, saved as [MockMechina Dashboard.html](MockMechina%20Dashboard.html):
+- a dark and light theme;
+- a sidebar with sections and counts;
+- a top bar with the ports and connection status;
+- a route list next to a detail pane;
+- a ⌘K palette.
+
+The mockup also shows team, review, cloud and billing views. Those need accounts or a hosted service, so they stay out of this phase.
+
+The server renders the HTML with `html/template`, and htmx swaps the pieces into the page. The page's behaviour lives in Go handlers and templates, so it changes and is tested like the rest of the code. Every action reuses the operations behind the control API, and each new operation gets a JSON endpoint as well, so tests and scripts can do whatever the page does.
+
+**In scope**
+
+- **Shell.** Sidebar, top bar, theme toggle, keyboard shortcuts, and a ⌘K palette that jumps to a route or a view.
+  - The sidebar has Overview, Routes, Traffic, Data, Scenarios and Coverage, with their counts, and the route groups as filters.
+  - The top bar shows the HTTP and gRPC ports, the proxy target when there is one, and whether the page is connected.
+- **Overview.**
+  - Cards: routes, requests this session, errors this session, coverage.
+  - The pinned routes and the last applied scenario.
+  - The newest requests.
+  - It shows only what a running mock knows: no greetings, team, review or staging cards.
+- **Routes.**
+  - A list grouped by `group`, with a filter box and protocol tabs (HTTP, WebSocket, SSE, gRPC). Each row shows the method, path and the state being served.
+  - A read-only detail pane. Clicking a state chip pins that state, and "Make default" saves it to the routes file. Below the chips it shows:
+    - the response: status, latency, fault, headers and the raw body template;
+    - the rules and webhooks;
+    - a preview of the rendered body with a fixed seed;
+    - a "Try it" curl command with a copy button;
+    - the precedence note (`X-Mock-State`, `?__state=`).
+- **Traffic.** The live request log:
+  - each row shows time, method, path, state and reason, status or gRPC code, and duration;
+  - filters for all, errors, proxied and webhooks;
+  - pause, and clear;
+  - clicking a row opens its route.
+- **Data.**
+  - The CRUD collections with their item counts.
+  - The selected collection as a table, with its endpoints and where it was seeded from.
+  - Deleting an item, and resetting data and counters.
+- **Scenarios.**
+  - A new file type, `.mockmachina/scenarios/<name>.yaml`. Each file names a set of route states.
+  - Cards for each scenario, with an Apply button.
+  - A copyable `X-Mock-Scenario` header example.
+- **Coverage.**
+  - Which states of each route the mock has served this session, with the overall percentage.
+  - States never reached are marked, so the person knows which screens to try next.
+- **Hot reloads.** The page refreshes the routes, data and scenarios when the project reloads.
+- **Connection.** The page shows when the mock stops and reconnects when it comes back.
+- **Other machines.** A token login (P9-8).
+- **Startup.** `start` and the TUI print the dashboard URL.
+- **Docs.**
+  - A dashboard section, and `docs/scenarios.md`.
+  - Scenario files in `docs/file-format.md` and the JSON schemas.
+  - The README and the changelog.
+
+**Out of scope**
+
+- **Editing in the browser.** No editing of routes, states, bodies, collections or quantities. "Make default" is the one write.
+- **Mockup views that need accounts, a hosted service or features that don't exist yet:**
+  - Review, Feature specs, Import / Export, People and teams, Billing, Settings;
+  - Environments, Deploy to cloud, Simulators;
+  - the Network throttle, New route, AI drafts;
+  - "Save current states" as a scenario, and "Record real responses".
+- **Hosted access.** A hosted MockMachina site that controls local mocks.
+- **Bodies in the log.** Request and response bodies; events don't carry them.
+
+### Endpoints
+
+All pass the same access check as the Phase 8 control API.
+
+**New JSON endpoints under `/__mockmachina/`**
+
+| Request | Returns |
+| --- | --- |
+| `GET requests` | The newest requests, up to 500, newest first; also the session counts |
+| `GET coverage` | For each route, the states served this session and the states not yet served |
+| `GET collections` | Each CRUD collection with its item count and seed file |
+| `GET collections/{name}` | The collection's items |
+| `DELETE collections/{name}/{id}` | Removes one item |
+| `GET scenarios` | Each scenario with its title, description and states |
+| `POST scenarios/{name}/apply` | Applies the scenario (P9-15) |
+
+**Dashboard under `/__mockmachina/ui/`**
+
+| Request | Returns |
+| --- | --- |
+| `GET ui/` | Overview |
+| `GET ui/routes`, `GET ui/routes/{id}` | The routes view, with the detail pane open for `{id}`; htmx asks for just the list or the pane |
+| `GET ui/routes?q=&protocol=` | The filtered route list |
+| `POST ui/routes/{id}/pin`, `.../unpin`, `.../default` | The updated detail pane and list row |
+| `GET ui/routes/{id}/preview?state=` | The rendered body for that state |
+| `GET ui/traffic?filter=` | The traffic view, with history rendered from `GET requests` |
+| `GET ui/data`, `GET ui/data/{name}` | The data view |
+| `POST ui/data/{name}/{id}/delete` | The updated table |
+| `GET ui/scenarios`, `POST ui/scenarios/{name}/apply` | The scenarios view |
+| `GET ui/coverage` | The coverage view |
+| `POST ui/reset` | The current view, re-rendered |
+| `GET ui/events?filter=` | Server-sent events: `request` with a rendered log row, and `reload` with `data: {}` |
+| `GET ui/palette?q=` | Matching routes and views for ⌘K |
+| `GET ui/static/{file}` | `htmx.min.js`, `sse.js`, `style.css`, `app.js` |
+| `POST ui/login` (form: `token`) | Sets the session cookie and redirects to `ui/` |
+
+### Scenario files
+
+```yaml
+# .mockmachina/scenarios/checkout-fails.yaml
+title: Checkout fails
+description: Card declined at payment; orders and profile still load.
+states:
+  payments.create: declined
+  me.get: success
+  orders.list: success
+```
+
+- The scenario's name is its file name.
+- The loader checks every route id and state name, and an unknown one is a problem with file:line and the closest match, like every other reference.
+- A scenario file is optional and additive, so existing projects don't change.
+
+### Flows
+
+1. The person runs `mockmachina start`, and the startup notes include `dashboard on http://localhost:4001/__mockmachina/ui/`.
+2. Overview shows 15 routes, 0 requests and 0% coverage.
+3. In Routes, they open `users.list` and click the `empty` chip. The route is pinned to `empty`, and the list row shows `empty`.
+4. Their app calls `/users`. Traffic shows `GET /users empty · control 200 3 ms`, and Coverage marks `users.list/empty` as served.
+5. In Scenarios, they apply "Checkout fails". Every pin is replaced by the scenario's states, and Overview names the scenario.
+6. They edit `users.yaml`. The page re-renders the routes, and the pins stay.
+7. Reset clears pins, the scenario, coverage, counts, variables and collections.
+8. They press Ctrl+C. The page shows "disconnected" and reconnects when the mock is back.
+
+### Decisions
+
+| # | Question | Decision | Why |
+| --- | --- | --- | --- |
+| P9-1 | Where the dashboard runs | Served by the mock at `/__mockmachina/ui/`, chosen on 2026-10-14 | Works offline and ships in the same binary. Same origin, so the Phase 8 origin check holds with no CORS |
+| P9-2 | Front-end stack | Server-rendered `html/template` with htmx and its SSE extension, chosen on 2026-10-14 | Changes to the page are Go and template changes, tested in Go. No framework, no Node and no build step |
+| P9-3 | Getting htmx | One pinned htmx 2.x release and the matching SSE extension, saved under `internal/control/ui/static/`. The playbook records the version and SHA-256. Pinned on 2026-10-15: `htmx.org@2.0.7` `htmx.min.js` sha256 `60231ae6ba9db3825eb15a261122d5f55921c4d53b66bf637dc18b4ee27c79f9`, and `htmx-ext-sse@2.2.3` `sse.min.js` sha256 `204a17ec2bf490b7df592f55ebe547e44b099fb53c88b442d0bced0e10327e12`; both match on jsDelivr and unpkg, and `TestUI_Static` checks them | No CDN at runtime, so it works offline. Upgrading is a deliberate change |
+| P9-4 | Where the UI code lives | In `internal/control`, next to the JSON API, with `ui.go` and `ui/` for the templates and static files | One access check, one set of operations and one events hub, so the API and the page can't drift apart |
+| P9-5 | Page security | Every UI response sends `Content-Security-Policy: default-src 'self'`. htmx runs with `allowEval: false` and `includeIndicatorStyles: false`, and `hx-on` is not used | A route name, path or body from a project file can never run as script. `html/template` escapes everything it writes |
+| P9-6 | Forged requests | UI `POST`s also need the `HX-Request: true` header that htmx sends | Another site can't add a custom header without a CORS preflight, which the mock refuses |
+| P9-7 | DNS rebinding | A loopback request without a token must also have a loopback `Host` (`localhost`, `127.0.0.1`, `[::1]`). This applies to the control API too | Today a site that resolves its own name to 127.0.0.1 passes the origin check, because its `Origin` matches its `Host` |
+| P9-8 | Other machines | `ui/login` takes the control token and sets an `HttpOnly`, `SameSite=Strict` cookie scoped to `/__mockmachina/ui/`. The access check accepts it for UI paths | `EventSource` sends cookies but not headers. Same token as the API, and page script can't read it |
+| P9-9 | Scope from the mockup | Overview, Routes, Traffic, Data, Scenarios and Coverage, chosen on 2026-10-14 | These work against a running mock. Team, review and cloud views need accounts or a service |
+| P9-10 | Editing | Read-only, apart from pinning, "Make default", deleting a collection item, applying a scenario and reset, chosen on 2026-10-14 | Editing YAML from a form needs edits that keep comments and layout. That's a phase of its own |
+| P9-11 | Scenario precedence | `X-Mock-State`, then `?__state=`, then `X-Mock-Scenario`, then pins, then rules, modes and `active` | A single request can still ask for one state. The header applies a scenario to one request without touching the server |
+| P9-12 | What Apply does | It clears every pin, then pins each route the scenario names, and remembers the scenario's name until reset | A scenario is a whole-app situation, so leftover pins from before would mix two situations. It reuses pins, so reset and the precedence rules need nothing new |
+| P9-13 | Request history | The API keeps the newest 500 requests in a ring buffer: O(1) to add one, O(n) to list them. Request and error counts are kept until reset | Traffic and Overview render history on load instead of starting empty. The memory used has a fixed cap |
+| P9-14 | Coverage | A set of (route, state) pairs the mock served this session, kept in server memory and cleared by reset. The percentage is pairs served ÷ all pairs | It answers "which screens haven't we seen yet?" It counts states the mock served, not code that ran |
+| P9-15 | Duration | `server.Request` gets the time from receiving the request to writing the response, using the clock package | Traffic shows it, and it shows when latency or faults are in play |
+| P9-16 | Reloads | The hub sends a `reload` event when `Swap` runs, on both streams | The page learns about new routes and scenarios without polling |
+| P9-17 | Own JS | One small `app.js`: the ⌘K palette's keys, shortcuts, the theme toggle, pausing the log, capping it at 500 rows, copy buttons and the connection status | The rest is htmx attributes on server-rendered HTML |
+| P9-18 | Testing | Handler tests for every endpoint. Rendered fragments are compared with golden files in `testdata/golden/ui/`, which `-update` rewrites. A browser checklist covers htmx and `app.js` | Testing stays on stdlib and go-cmp, and the HTML is checked like the CLI output |
+| P9-19 | The mock's root | A browser opening `GET /` is redirected (302) to the dashboard when no route matches `/` and there's no proxy, chosen on 2026-10-15. A browser opening a page is recognised by `Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`; the redirect isn't reported as traffic | `/` belongs to the project's API, and apps following redirects silently would get HTML. Only people typing the address are sent on |
+
+### Build order
+
+**Backend first; each task starts with a failing test**
+
+| # | Task | Done when | Status |
+| --- | --- | --- | --- |
+| 1 | Close the rebinding gap (P9-7) in `control.refuse` | A loopback request with `Host: evil.example:4001` gets 403; `localhost`, `127.0.0.1` and `[::1]` still pass | Done; with a token set, the same request gets 401 and passes with the token |
+| 2 | `reload` event from `Swap` | A subscriber reads `reload` after a swap | Done; it carries `data: {}`, because `EventSource` ignores an event with no data line |
+| 3 | Request duration (P9-15) on HTTP, streams, GraphQL, gRPC and webhooks; `duration_ms` in events | A route with 120 ms latency reports at least 120 ms on a fake clock | Done; synctest checks 800 ms, 0 ms and a 404. Streams count the time to open, and webhooks their own call |
+| 4 | Request history and counts (P9-13); `GET requests` | 501 requests keep the newest 500; reset zeroes the counts | Done; reset also empties the history. An error is a status of 400 or above, a gRPC code other than `OK`, a fault or a problem |
+| 5 | Coverage in server memory (P9-14); `GET coverage` | Serving `users.list/empty` marks it, the percentage is right, and reset clears it | Done; recorded in `Options.reporter()`, so every protocol counts. Unknown states, rejected requests, clients that left, webhooks and proxied requests don't |
+| 6 | Collections: `GET collections`, `GET collections/{name}`, `DELETE collections/{name}/{id}` | A POSTed item is listed and can be deleted; an unknown name gets a hint | Done; `Memory.Items` and `Memory.DeleteItem` share the collection the mock serves |
+| 7 | Scenario files: model, loader checks, JSON schema, `lint` | A bad route or state is a problem with file:line and a hint; the schema test passes | Done; `scenario.schema.json`, `Project.Scenario(name)`, and a Scenarios section in `docs/file-format.md`. How to apply one is documented with tasks 8–9 |
+| 8 | `X-Mock-Scenario` in the server (P9-11), with a `scenario` reason | The header serves the scenario's state, and `X-Mock-State` still wins | Done; also gRPC metadata. An unknown name is a 400 (`INVALID_ARGUMENT` for gRPC) with a hint on every route; a route the scenario doesn't name falls through; proxied routes in the scenario are mocked and the header isn't forwarded |
+| 9 | `GET scenarios` and `POST scenarios/{name}/apply` (P9-12) | Apply replaces pins and the name shows in `GET scenarios` as `applied`; reset forgets it | Done; an unknown name is a 404 with a hint. Pinning afterwards keeps the name |
+| 10 | Pull out the shared operations so the JSON and UI handlers use the same code | All earlier tests still pass unchanged | Done; `internal/control/ops.go` holds the views and operations, each returning a value or a `*failure` (status and problem). The JSON handlers only decode and encode |
+
+**Dashboard**
+
+| # | Task | Done when | Status |
+| --- | --- | --- | --- |
+| 11 | Shell: embed and serve static files with CSP and cache headers, the layout template, sidebar counts, top bar, the `HX-Request` check | Golden file for the shell; `htmx.min.js` serves with the CSP header; a POST without `HX-Request` gets 403 | Done; `ui.go`, `ui/layout.html`, `ui/overview.html` (placeholder until task 14), `style.css`, `app.js` (theme toggle). `Options.Name` from `start` names the project. Sidebar links to views not built yet answer 404 until tasks 12–17. The gRPC port and connection status join the top bar with task 13 |
+| 12 | Routes view: list, filter, protocol tabs, detail pane, pin, unpin, Make default, preview, Try it | Golden files for the list, a filtered list, the pane, a pinned pane, a failed save and a preview | Done; golden files for the list, a filter, the CRUD tab, a pane and a pinned pane; tests for pin, a bad state, unpin, Make default and an unknown route. The pane shows the raw body: a rendered preview would run the mock's handler and change call counts, coverage and CRUD data, so it waits for a side-effect-free render. Copy buttons come with task 18 |
+| 13 | Traffic view and UI events stream, with filters | Golden rows for each filter; a subscriber reads a rendered row and a reload | Done; one SSE connection per page on `<body>` drives live rows, the connection pill (live, disconnected) and a `reload` that re-renders `#app` (with `hx-disinherit`, so children don't inherit its target). Both streams share `serveEvents`. `start` passes the gRPC address with `SetGRPC`. The page has its own icon, so opening it adds no traffic. Sidebar counts refresh on reload or navigation, not per request |
+| 14 | Overview | Golden file with routes, requests, pins and a scenario | Done; cards for routes and pins, requests and errors, states served, and the applied scenario; the newest 8 requests, live and capped with `data-cap`; pinned routes. The row template lives in `ui/rows.html` for every view |
+| 15 | Data view | Golden files for the list, a table and an empty collection | Done; columns are the id field, then every field in first-seen order; nested values show as JSON; ids are path-escaped for delete. `POST ui/reset` clears everything and answers `HX-Refresh: true`, so any view can use it |
+| 16 | Scenarios view | Golden file; Apply re-renders with the scenario marked | Done; a card per scenario (title or file name, description, each route's method, path and state), Apply or Apply again, the applied card marked, curl examples for the header and the apply endpoint, and an example file when there are none |
+| 17 | Coverage view | Golden file with served and unreached states | Done; the overall percentage with a `<meter>` (the CSP blocks inline widths), each route's states in file order (served ones ticked, others dashed with a screen-reader label), an x/y count, a "Not fully served" filter and a reset button |
+| 18 | `app.js` and `style.css`: palette, shortcuts, theme, pause, cap, copy, connection status, phone width | Browser checklist passes | Done; `GET ui/palette?q=` (tested in Go) feeds a `<dialog>` palette (⌘K, Ctrl K, `/`), with arrow keys and Enter; `g` then o/r/t/d/s/c, `p` to pause, `?` for shortcuts. Pause holds rows back and counts them, and resume refills from history. Clear empties the view only. Traffic caps at 500. Copy buttons go on `pre[data-copy]` and fall back to selecting the text. Driven in headless Chrome over the DevTools protocol on 2026-10-15: 19 checks passed, no console errors. Safari and Firefox are still on the checklist |
+| 19 | Login for other machines (P9-8) | A non-loopback request with the cookie passes, and a wrong cookie gets 401; another device logs in and pins a state | Done; a refused dashboard request gets an HTML page that names nothing from the project: a token form (401) or how to allow other machines (403). `POST ui/login` and static files skip the token, but not the origin check. The cookie is the token, `HttpOnly`, `SameSite=Strict`, scoped to the dashboard and `Secure` over TLS; the JSON API still needs the header. Pages send `Referrer-Policy: same-origin`, because with `no-referrer` Chrome sends `Origin: null` on form posts and the origin check refused the login. Found and checked in headless Chrome over the LAN address on 2026-10-15 |
+| 20 | Dashboard URL in `start` and the TUI | The startup note names the URL | Done; `dashboard on http://127.0.0.1:4001/__mockmachina/ui/` follows the control note, with "other machines sign in with the token" when the host isn't loopback. An unspecified host (`0.0.0.0`, `::`) prints `localhost`, for this note and the control note, so the URL opens. The welcome card lists it with the other notes, and the TUI header shows it last so a narrow terminal cuts it first. The start-test helpers `nextLine` and `expectLine` skip the note, since those tests read request logs |
+| 21 | Docs, schemas, an example scenario in `examples/storefront`, and the changelog | `docs/scenarios.md`, a dashboard section with screenshots, and the checklist in `docs/` | Done; `docs/dashboard.md` (with two screenshots in `docs/images/`), `docs/scenarios.md`, `docs/dashboard-checklist.md`, links from the README, control API and file format docs; storefront gains `new-shopper`, `checkout-fails` and `bad-network-day`, and its walkthrough test now sends `X-Mock-Scenario` |
+
+### Tests, exit criteria and risks
+
+**Browser checklist** (Chrome, Safari and Firefox; light and dark; phone width)
+
+1. Overview shows the right counts and the newest requests.
+2. The route filter and protocol tabs narrow the list as you type.
+3. Clicking a state chip pins it, and the next request answers with that state.
+4. Removing the pin goes back to the route's own state.
+5. "Make default" changes the file's `active` line, and the pin disappears.
+6. The preview shows the rendered body, and Try it copies a working curl.
+7. A request shows up in Traffic within a second, with its duration. Each filter shows only its rows.
+8. Pause stops new rows, and resume adds new ones again. Clear empties the log.
+9. Data lists collections, and deleting an item removes it from the next GET.
+10. Applying a scenario pins its routes, and Overview names it.
+11. Coverage marks a state after the app reaches it.
+12. Reset clears pins, the scenario, coverage, counts and data.
+13. Editing a routes or scenario file updates the page without reloading it.
+14. Stopping the mock shows "disconnected", and starting it again reconnects.
+15. ⌘K finds a route, and every shortcut works.
+16. Everything above works with the keyboard alone.
+17. The browser console shows no CSP violations.
+
+**Exit criteria**
+
+- `go test -race ./...` and golangci-lint pass.
+- The checklist passes in all three browsers.
+- The binary grows by less than 250 KB (htmx is about 50 KB of that).
+
+**Risks**
+
+- **Size.** This phase is about twice Phase 8. Tasks 1–10 are useful on their own through the JSON API, so they can be released first as v0.8.x if the dashboard runs long.
+- **Scenarios change the file format.** The change only adds things. The loader, schema and docs change together in task 7.
+- **Third-party code.** htmx and its SSE extension are code we didn't write, running against our CSP. Pin the version, record the checksum, and check the console in each browser.
+- **Golden files.** They can hide a bad change if people update them without reading the diff. Keep each fragment small.
+- **A fast event stream.** It could slow the page. `app.js` caps the log at 500 rows, and the UI stream drops events like the API stream does (P8-6).

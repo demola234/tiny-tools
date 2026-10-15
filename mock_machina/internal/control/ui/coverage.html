@@ -1,0 +1,36 @@
+{{define "content"}}<div class="heading split">
+<div>
+<h1>Coverage</h1>
+<p class="lede">Which states the mock has served since it started or was reset. A state not served yet is a screen nobody has seen.</p>
+</div>
+<nav class="tabs" aria-label="Show">
+{{- range .Filters}}
+<a href="{{.Href}}"{{if .Current}} aria-current="page" class="current"{{end}}>{{.Label}}</a>
+{{- end}}
+</nav>
+</div>
+<div class="coverage-summary">
+<strong>{{.Summary.Percent}}%</strong>
+<meter min="0" max="{{.Summary.Total}}" value="{{.Summary.Served}}" aria-label="States served">{{.Summary.Served}} of {{.Summary.Total}}</meter>
+<span class="meta">{{.Summary.Served}} of {{.Summary.Total}} states served</span>
+<form hx-post="{{.Base}}reset"><button type="submit" class="button">Reset and start again</button></form>
+</div>
+{{- if .Rows}}
+<ul class="coverage">
+{{- range .Rows}}
+<li>
+<a class="coverage-route" href="{{$.Base}}routes/{{.ID}}"><span class="method m-{{.Method}}">{{.Method}}</span><code class="path">{{.Path}}</code></a>
+<span class="chips">
+{{- range .Chips}}
+<span class="cover{{if .Served}} served{{end}}">{{if .Served}}<span aria-hidden="true">✓ </span>{{else}}<span class="visually-hidden">not served: </span>{{end}}{{.Name}}</span>
+{{- end}}
+</span>
+<span class="meta ratio">{{.Served}}/{{.Total}}</span>
+</li>
+{{- end}}
+</ul>
+{{- else if .Gaps}}
+<p class="empty">Every state has been served. Nice.</p>
+{{- else}}
+<p class="empty">No routes yet.</p>
+{{- end}}{{end}}

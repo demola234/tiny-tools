@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,4 +109,35 @@ func TestCRUD_MemoryAndReset(t *testing.T) {
 	edited := `[{"id":"i_1","name":"Coffee"}]`
 	reset, _ := server.New(crudProject(edited), server.Options{Memory: mem})
 	runSteps(t, reset, []crudStep{{"GET", "/cart/items", "", "", 200, edited}})
+}
+
+func TestCRUD_MemoryShowsAndDeletesItems(t *testing.T) {
+	t.Parallel()
+
+	p := crudProject(cartData)
+	c := p.Routes[0].CRUD
+	mem := server.NewMemory()
+	h, err := server.New(p, server.Options{Memory: mem})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := joined(mem.Items(c)); got != `{"id":"i_1","name":"Tea","qty":1},{"id":"i_2","name":"Milk","qty":2}` {
+		t.Errorf("seeded items %s", got)
+	}
+	runSteps(t, h, []crudStep{{method: "POST", target: "/cart/items", body: `{"id":"i_3","name":"Rice"}`, code: 201, want: `{"id":"i_3","name":"Rice"}`}})
+	if !mem.DeleteItem(c, "i_1") || mem.DeleteItem(c, "i_9") {
+		t.Error("DeleteItem should remove i_1 and report i_9 as missing")
+	}
+	if got := joined(mem.Items(c)); got != `{"id":"i_2","name":"Milk","qty":2},{"id":"i_3","name":"Rice"}` {
+		t.Errorf("items after POST and delete %s", got)
+	}
+	runSteps(t, h, []crudStep{{method: "GET", target: "/cart/items/i_1", code: 404, want: "{\"error\":\"not_found\",\"id\":\"i_1\"}\n"}})
+}
+
+func joined(items []json.RawMessage) string {
+	parts := make([]string, len(items))
+	for i, it := range items {
+		parts[i] = string(it)
+	}
+	return strings.Join(parts, ",")
 }

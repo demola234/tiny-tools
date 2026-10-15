@@ -7,7 +7,7 @@ MockMachina is one program, `mockmachina`, with no runtime to install. Pick whic
 | macOS or Linux, with Homebrew | `brew install demola234/tap/mockmachina` |
 | macOS or Linux, without Homebrew | `curl -fsSL https://raw.githubusercontent.com/demola234/tiny-tools/main/mock_machina/install.sh \| sh` |
 | Windows, with Scoop | `scoop bucket add demola234 https://github.com/demola234/scoop-bucket` then `scoop install mockmachina` |
-| Anywhere with Go 1.25 or newer | `go install github.com/demola234/tiny-tools/mock_machina/cmd/mockmachina@latest` |
+| Anywhere with Go 1.26 or newer | `go install github.com/demola234/tiny-tools/mock_machina/cmd/mockmachina@latest` |
 | Docker | `docker run --rm -p 4001:4001 -v "$PWD/.mockmachina:/mock/.mockmachina" ghcr.io/demola234/mockmachina` |
 
 Then check it works:

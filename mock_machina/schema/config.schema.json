@@ -23,6 +23,12 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 65535
+        },
+        "grpc": {
+          "description": "Port GRPC routes are served on, when the project has any. Defaults to 4002.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
         }
       },
       "additionalProperties": false

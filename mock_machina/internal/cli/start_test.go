@@ -283,9 +283,9 @@ func TestStart_ReloadFailuresKeepServing(t *testing.T) {
 
 	writeFile(t, filepath.Join(dir, "routes", "a.yaml"), routeA)
 	writeFile(t, filepath.Join(dir, "routes", "b.yaml"), routeB)
-	first := <-lines
+	first := nextLine(t, lines)
 	if first == "reloaded after changes to routes/a.yaml (2 routes)" {
-		first = <-lines
+		first = nextLine(t, lines)
 	}
 	if first != "reload failed, still serving the previous version:" {
 		t.Errorf("log line = %q, want the reload to fail", first)
@@ -455,7 +455,7 @@ func readLines(r io.Reader) <-chan string {
 
 func expectLine(t *testing.T, lines <-chan string, want string) {
 	t.Helper()
-	if got := <-lines; got != want {
+	if got := nextLine(t, lines); got != want {
 		t.Errorf("log line = %q, want %q", got, want)
 	}
 }

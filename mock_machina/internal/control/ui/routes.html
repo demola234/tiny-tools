@@ -1,0 +1,106 @@
+{{define "content"}}<div class="heading">
+<h1>Routes</h1>
+<p class="lede">Pick a state to pin it. A pin lasts until you remove it or reset, and never changes your files.</p>
+</div>
+<form id="route-filter" class="filter" action="{{.Base}}routes" hx-get="{{.Base}}routes" hx-trigger="input delay:200ms, submit" hx-target="#route-list" hx-select="#route-list" hx-swap="outerHTML" hx-push-url="true">
+<input type="search" name="q" value="{{.Filter.Q}}" placeholder="Filter by id, method or path" aria-label="Filter routes">
+{{- with .Filter.Group}}
+<input type="hidden" name="group" value="{{.}}">
+{{- end}}
+<fieldset class="tabs">
+<legend class="visually-hidden">Protocol</legend>
+{{- range .Tabs}}
+<label{{if .Current}} class="current"{{end}}><input type="radio" name="protocol" value="{{.Key}}"{{if .Current}} checked{{end}}>{{.Label}}</label>
+{{- end}}
+</fieldset>
+</form>
+<div id="routes" class="routes">
+<nav id="route-list" class="route-list" aria-label="Routes">
+{{- range .List}}
+<h2 class="section">{{.Name}}</h2>
+<ul>
+{{- range .Rows}}
+<li><a href="{{$.Base}}routes/{{.ID}}" hx-get="{{$.Base}}routes/{{.ID}}" hx-target="#routes" hx-select="#routes" hx-swap="outerHTML" hx-include="#route-filter" hx-push-url="true"{{if .Current}} aria-current="page"{{end}}><span class="method m-{{.Method}}">{{.Method}}</span><code class="path">{{.Path}}</code><span class="serving{{with .Note}} {{.}}{{end}}">{{.Serving}}</span></a></li>
+{{- end}}
+</ul>
+{{- else}}
+<p class="empty">No routes match.</p>
+{{- end}}
+</nav>
+<section id="route-pane" class="pane" aria-live="polite">
+{{- with .Error}}
+<p class="error" role="alert">{{.}}</p>
+{{- end}}
+{{- with .Pane}}
+<header class="pane-head">
+<span class="method m-{{.Method}}">{{.Method}}</span>
+<h2><code>{{if .Operation}}{{.Operation}}{{else}}{{.Path}}{{end}}</code></h2>
+{{- with .Lifecycle}}
+<span class="tag">{{.}}</span>
+{{- end}}
+</header>
+<p class="meta"><code>{{.ID}}</code>{{with .Summary}} · {{.}}{{end}}</p>
+<h3 class="section">States</h3>
+<form class="chips" hx-post="{{$.Base}}routes/{{.ID}}/pin" hx-target="#routes" hx-select="#routes" hx-swap="outerHTML" hx-include="#route-filter">
+{{- range .Chips}}
+<button type="submit" name="state" value="{{.Name}}" class="chip{{if .Current}} current{{end}}"{{if .Current}} aria-pressed="true"{{end}}>{{.Name}} <span class="code">{{.Code}}</span></button>
+{{- end}}
+</form>
+{{- if .Pinned}}
+<div class="pin-box">
+<span>Pinned to <strong>{{.Pinned}}</strong>{{if ne .Pinned .Active}}; the file's default is <strong>{{.Active}}</strong>{{end}}.</span>
+<form hx-post="{{$.Base}}routes/{{.ID}}/unpin" hx-target="#routes" hx-select="#routes" hx-swap="outerHTML" hx-include="#route-filter"><button type="submit" class="button">Remove pin</button></form>
+{{- if ne .Pinned .Active}}
+<form hx-post="{{$.Base}}routes/{{.ID}}/default" hx-target="#routes" hx-select="#routes" hx-swap="outerHTML" hx-include="#route-filter"><input type="hidden" name="state" value="{{.Pinned}}"><button type="submit" class="button">Make {{.Pinned}} the default</button></form>
+{{- end}}
+</div>
+{{- else if and .Mode (ne .Mode "active")}}
+<p class="note">This route picks its state by <strong>{{.Mode}}</strong>. Pin a state to override it.</p>
+{{- end}}
+<p class="note">One request can still ask for a state with <code>X-Mock-State: {{.Active}}</code> or <code>?__state={{.Active}}</code>.</p>
+{{- with .Shown}}
+<h3 class="section">Response · {{.Name}}</h3>
+<dl class="facts">
+<dt>Status</dt><dd><code>{{.Status}}</code></dd>
+{{- with .Latency}}
+<dt>Latency</dt><dd>{{.}}</dd>
+{{- end}}
+{{- with .Fault}}
+<dt>Fault</dt><dd>{{.}}</dd>
+{{- end}}
+{{- with .ContentType}}
+<dt>Content-Type</dt><dd><code>{{.}}</code></dd>
+{{- end}}
+{{- range .Headers}}
+<dt><code>{{index . 0}}</code></dt><dd><code>{{index . 1}}</code></dd>
+{{- end}}
+{{- with .File}}
+<dt>Body file</dt><dd><code>{{.}}</code></dd>
+{{- end}}
+</dl>
+{{- with .Body}}
+<pre class="body"><code>{{.}}</code></pre>
+{{- end}}
+{{- with .BodyNote}}
+<p class="note">Body: {{.}}</p>
+{{- end}}
+{{- end}}
+{{- with .Rules}}
+<h3 class="section">Rules</h3>
+<ol class="rules">
+{{- range .}}
+<li><code>{{.}}</code></li>
+{{- end}}
+</ol>
+{{- end}}
+{{- with .Try}}
+<h3 class="section">Try it</h3>
+<pre class="try" data-copy><code>{{.}}</code></pre>
+{{- end}}
+{{- else}}
+{{- if not .Error}}
+<p class="empty">Pick a route to see its states.</p>
+{{- end}}
+{{- end}}
+</section>
+</div>{{end}}

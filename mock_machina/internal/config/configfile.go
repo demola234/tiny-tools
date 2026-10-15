@@ -20,7 +20,7 @@ const (
 
 var (
 	configFields = []string{"version", "host", "ports", "proxy", "seed", "locale"}
-	portFields   = []string{"mock"}
+	portFields   = []string{"mock", "grpc"}
 )
 
 func (l *loader) config() model.Config {
@@ -89,18 +89,23 @@ func (l *loader) ports(v *yaml.Node, cfg *model.Config) {
 		l.add(configFile, v.Line, "ports must map names to numbers, like { mock: 4001 }")
 		return
 	}
-	mock := l.fields(configFile, v, portFields, nil)["mock"]
-	if mock == nil {
+	f := l.fields(configFile, v, portFields, nil)
+	l.port(f["mock"], "mock", 4001, &cfg.Ports.Mock)
+	l.port(f["grpc"], "grpc", 4002, &cfg.Ports.GRPC)
+}
+
+func (l *loader) port(v *yaml.Node, name string, example int, dst *int) {
+	if v == nil {
 		return
 	}
 	var port int
 	switch {
-	case mock.Decode(&port) != nil:
-		l.add(configFile, mock.Line, "ports.mock must be a number, like 4001")
+	case v.Decode(&port) != nil:
+		l.add(configFile, v.Line, "ports.%s must be a number, like %d", name, example)
 	case port < 1 || port > maxPort:
-		l.add(configFile, mock.Line, "ports.mock %d isn't a port (1-%d)", port, maxPort)
+		l.add(configFile, v.Line, "ports.%s %d isn't a port (1-%d)", name, port, maxPort)
 	default:
-		cfg.Ports.Mock = port
+		*dst = port
 	}
 }
 

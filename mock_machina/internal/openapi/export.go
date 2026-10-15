@@ -74,7 +74,24 @@ type exportedOp struct {
 	body         *omap
 }
 
+func Skipped(p *model.Project) int {
+	n := 0
+	for _, r := range p.Routes {
+		if notOpenAPI(r) {
+			n++
+		}
+	}
+	return n
+}
+
+func notOpenAPI(r *model.Route) bool {
+	return r.Method.Stream() || r.Method == model.MethodGraphQL || r.Method == model.MethodGRPC
+}
+
 func operations(r *model.Route) []exportedOp {
+	if notOpenAPI(r) {
+		return nil
+	}
 	if r.Method != model.MethodCRUD {
 		return []exportedOp{{path: r.Path, method: strings.ToLower(string(r.Method)), body: operation(r)}}
 	}

@@ -239,3 +239,28 @@ func problem(status int, v map[string]string) crudResult {
 	_ = json.NewEncoder(&b).Encode(v)
 	return crudResult{status: status, body: b.Bytes()}
 }
+
+func (m *Memory) Items(cfg *model.CRUD) []json.RawMessage {
+	c := m.collection(cfg.Collection, cfg.Data, cfg.IDField)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]json.RawMessage, len(c.items))
+	for i, it := range c.items {
+		var b bytes.Buffer
+		it.encode(&b)
+		out[i] = b.Bytes()
+	}
+	return out
+}
+
+func (m *Memory) DeleteItem(cfg *model.CRUD, id string) bool {
+	c := m.collection(cfg.Collection, cfg.Data, cfg.IDField)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	i := c.find(cfg.IDField, id)
+	if i < 0 {
+		return false
+	}
+	c.items = slices.Delete(c.items, i, i+1)
+	return true
+}

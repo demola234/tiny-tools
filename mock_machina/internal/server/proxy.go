@@ -10,18 +10,19 @@ import (
 )
 
 type proxy struct {
-	target  *url.URL
-	reverse *httputil.ReverseProxy
-	report  func(Request)
+	target   *url.URL
+	reverse  *httputil.ReverseProxy
+	reporter func() func(Request)
 }
 
 func newProxy(target *url.URL, opts Options) *proxy {
-	p := &proxy{target: target, report: opts.Report}
+	p := &proxy{target: target, reporter: opts.reporter}
 	p.reverse = &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(target)
 			pr.SetXForwarded()
 			pr.Out.Header.Del(stateHeader)
+			pr.Out.Header.Del(scenarioHeader)
 		},
 		ModifyResponse: func(res *http.Response) error {
 			if !opts.DisableCORS {
@@ -47,9 +48,10 @@ func newProxy(target *url.URL, opts Options) *proxy {
 }
 
 func (p *proxy) serve(w http.ResponseWriter, req *http.Request, route string) {
+	report := p.reporter()
 	sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 	p.reverse.ServeHTTP(sw, req)
-	p.report(Request{
+	report(Request{
 		Method: req.Method, Path: req.URL.RequestURI(), Status: sw.status,
 		Route: route, Problem: sw.problem, Proxied: true,
 	})

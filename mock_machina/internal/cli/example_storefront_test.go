@@ -137,6 +137,9 @@ func TestExample_StorefrontWalkthrough(t *testing.T) {
 		w.step("GET", "/orders/o_1001/tracking", "", auth, false)
 	}
 
+	w.step("GET", "/orders", "", "X-Mock-Scenario: new-shopper", true)
+	w.step("GET", "/orders", "", "X-Mock-Scenario: new-shoper", true)
+
 	w.step("DELETE", "/session", "", "", true)
 	w.step("DELETE", "/session", "", "", true)
 	w.step("GET", "/me", "", "", true)

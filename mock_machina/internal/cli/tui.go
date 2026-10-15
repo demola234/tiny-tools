@@ -81,7 +81,7 @@ func runTUI(ctx context.Context, in io.Reader, out, stderr io.Writer, o startOpt
 }
 
 func (s *session) screenOptions(o startOptions) tui.Options {
-	header := tui.Header{Project: projectName(o.dir), URL: s.url, Seed: s.seed}
+	header := tui.Header{Project: projectName(o.dir), URL: s.url, Seed: s.seed, Dashboard: openable(s.url) + model.ControlPrefix + "ui/"}
 	if target := o.proxyTarget(s.proj.Config); target != nil {
 		header.Proxy = target.String()
 	}
@@ -104,6 +104,12 @@ func screenRequest(r server.Request, at time.Time) tui.Request {
 
 func requestNotes(r server.Request) []string {
 	var notes []string
+	if r.GRPCCode != "" {
+		notes = append(notes, r.GRPCCode)
+	}
+	if r.Webhook {
+		return []string{"webhook"}
+	}
 	if r.Proxied {
 		notes = append(notes, "proxied")
 	}

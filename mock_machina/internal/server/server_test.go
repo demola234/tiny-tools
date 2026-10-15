@@ -8,10 +8,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/demola234/tiny-tools/mock_machina/internal/model"
 	"github.com/demola234/tiny-tools/mock_machina/internal/server"
 )
+
+var ignoreDuration = cmpopts.IgnoreFields(server.Request{}, "Duration")
 
 func usersProject() *model.Project {
 	return &model.Project{Routes: []*model.Route{
@@ -263,7 +266,7 @@ func TestServer_ReportsEachRequest(t *testing.T) {
 		{Method: "GET", Path: "/users", Status: 400, Route: "users.list", State: "nope", Reason: server.ReasonHeader, Problem: server.ProblemUnknownState},
 		{Method: "GET", Path: "/usrs", Status: 404, Problem: server.ProblemNoRoute, Suggestion: "GET /users"},
 	}
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(want, got, ignoreDuration); diff != "" {
 		t.Errorf("reported requests (-want +got):\n%s", diff)
 	}
 }

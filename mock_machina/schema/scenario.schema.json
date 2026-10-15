@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/demola234/tiny-tools/main/mock_machina/schema/scenario.schema.json",
+  "title": "MockMachina scenario",
+  "description": "A scenario in .mockmachina/scenarios/<name>.yaml: a named situation across many routes. Applying it pins each route to its state; X-Mock-Scenario: <name> applies it to one request.",
+  "type": "object",
+  "required": ["states"],
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "description": "A short name to show in the dashboard. Defaults to the file name.",
+      "type": "string",
+      "pattern": "^[^\\n]*$"
+    },
+    "description": {
+      "description": "One line on what the situation is for.",
+      "type": "string",
+      "pattern": "^[^\\n]*$"
+    },
+    "states": {
+      "description": "Route ids and the state each one answers with, like users.list: empty.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*\\.[a-z0-9][a-z0-9-]*$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  }
+}

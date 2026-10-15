@@ -1,0 +1,69 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true}'>
+<title>{{.Title}} · {{.Name}}</title>
+<link rel="icon" href="{{.Base}}static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="{{.Base}}static/style.css">
+<script src="{{.Base}}static/app.js"></script>
+<script src="{{.Base}}static/htmx.min.js" defer></script>
+<script src="{{.Base}}static/sse.min.js" defer></script>
+</head>
+<body hx-ext="sse" sse-connect="{{.Events}}" data-base="{{.Base}}">
+<div class="app" id="app" hx-get="{{.Self}}" hx-trigger="sse:reload" hx-select="#app" hx-target="this" hx-swap="outerHTML" hx-disinherit="*">
+<aside class="sidebar">
+<a class="brand" href="{{.Base}}"><span class="logo" aria-hidden="true">M</span><span>{{.Name}}</span></a>
+<nav aria-label="Views">
+<ul>
+{{- range .Nav}}
+<li><a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}><span>{{.Label}}</span>{{with .Count}}<span class="count">{{.}}</span>{{end}}</a></li>
+{{- end}}
+</ul>
+</nav>
+{{- with .Groups}}
+<h2 class="section">Route groups</h2>
+<ul>
+{{- range .}}
+<li><a href="{{$.Base}}routes?group={{.Name}}"><span>{{.Name}}</span><span class="count">{{.Count}}</span></a></li>
+{{- end}}
+</ul>
+{{- end}}
+<button type="button" class="theme" id="theme-toggle">Toggle theme</button>
+</aside>
+<div class="main">
+<header class="topbar">
+<span class="crumb">{{.Title}}</span>
+<button type="button" class="search" id="palette-open" aria-keyshortcuts="Meta+K Control+K">Search <kbd>⌘K</kbd></button>
+<span class="pill"><code>{{.Host}}</code>{{with .GRPC}} · gRPC <code>{{.}}</code>{{end}}</span>
+{{- with .Proxy}}
+<span class="pill">Real backend <code>{{.}}</code></span>
+{{- end}}
+<span class="pill connection" id="connection" role="status">connecting</span>
+</header>
+<main id="view">
+{{template "content" .}}
+</main>
+</div>
+</div>
+<dialog id="palette" class="palette" aria-label="Search routes and views">
+<input id="palette-input" type="search" name="q" placeholder="Search routes and views" autocomplete="off" hx-get="{{.Base}}palette" hx-trigger="input changed delay:120ms, focus" hx-target="#palette-results" hx-swap="outerHTML">
+<ul id="palette-results" class="palette-results" role="listbox" aria-label="Results"></ul>
+<p class="meta">↑↓ to move · ↵ to open · esc to close</p>
+</dialog>
+<dialog id="shortcuts" class="palette" aria-labelledby="shortcuts-title">
+<h2 id="shortcuts-title">Keyboard shortcuts</h2>
+<dl class="facts">
+<dt><kbd>⌘K</kbd> or <kbd>Ctrl K</kbd></dt><dd>Search routes and views</dd>
+<dt><kbd>/</kbd></dt><dd>Filter routes, or search</dd>
+<dt><kbd>g</kbd> then <kbd>o</kbd> <kbd>r</kbd> <kbd>t</kbd> <kbd>d</kbd> <kbd>s</kbd> <kbd>c</kbd></dt><dd>Go to Overview, Routes, Traffic, Data, Scenarios or Coverage</dd>
+<dt><kbd>p</kbd></dt><dd>Pause or resume Traffic</dd>
+<dt><kbd>?</kbd></dt><dd>Show these shortcuts</dd>
+<dt><kbd>esc</kbd></dt><dd>Close a dialog</dd>
+</dl>
+<form method="dialog"><button class="button">Close</button></form>
+</dialog>
+</body>
+</html>
+{{end}}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -46,5 +47,26 @@ func TestScreenRequest(t *testing.T) {
 				t.Errorf("(-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestWebhookLines(t *testing.T) {
+	ok := server.Request{Method: "POST", Path: "http://localhost:3000/events", Status: 200, Route: "payments.create", State: "pending", Webhook: true}
+	if got := formatRequest(ok); got != "webhook POST http://localhost:3000/events 200 (from payments.create:pending)" {
+		t.Errorf("formatRequest = %q", got)
+	}
+	down := server.Request{Method: "POST", Path: "http://localhost:3000/events", Route: "payments.create", State: "pending", Webhook: true, Problem: server.ProblemBackend, Detail: "connection refused"}
+	if got := formatRequest(down); got != "webhook POST http://localhost:3000/events failed (from payments.create:pending): connection refused" {
+		t.Errorf("formatRequest = %q", got)
+	}
+	if got := screenRequest(ok, time.Time{}); got.Note != "webhook" || got.Method != http.MethodPost {
+		t.Errorf("screenRequest = %+v", got)
+	}
+}
+
+func TestGRPCLines(t *testing.T) {
+	r := server.Request{Method: "GRPC", Path: "shop.v1.OrderService/GetOrder", Route: "orders.get", State: "not_found", Reason: server.ReasonRule, Rule: 1, GRPCCode: "NOT_FOUND"}
+	if got := formatRequest(r); got != "GRPC shop.v1.OrderService/GetOrder NOT_FOUND orders.get:not_found (rule 1)" {
+		t.Errorf("formatRequest = %q", got)
 	}
 }
