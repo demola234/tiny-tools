@@ -157,8 +157,7 @@ func runStart(ctx context.Context, stdout, stderr io.Writer, o startOptions) err
 }
 
 func sessionError(stderr io.Writer, err error) error {
-	var probs problemsError
-	if errors.As(err, &probs) {
+	if probs, ok := errors.AsType[problemsError](err); ok {
 		_, _ = fmt.Fprintf(stderr, "%s\n%s; not serving until it's fixed\n", probs.probs, probs.probs.Summary())
 		return &ExitError{Code: ExitFailure}
 	}

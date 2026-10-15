@@ -255,7 +255,7 @@ Phase 0 keeps dependencies to the minimum the loader and CLI need. Every later d
 
 | Dependency | Why | Notes |
 | --- | --- | --- |
-| Go 1.25+ | Language and toolchain | 1.25 brings `testing/synctest`, used from Phase 1 for timing tests |
+| Go 1.26+ | Language and toolchain | 1.25 brought `testing/synctest`, used from Phase 1 for timing tests. Raised to 1.26 on 2026-10-15 for the `golang.org/x/net` HTTP/2 security fixes |
 | `github.com/spf13/cobra` | Command tree and flags |  |
 | `charm.land/fang/v2` | Styled help, errors, `--version`, completions | Experimental per its authors; isolated in `main.go` |
 | `charm.land/log/v2` | Readable log and error output |  |

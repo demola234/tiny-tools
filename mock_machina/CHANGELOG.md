@@ -27,7 +27,12 @@ Planned as 0.2.0: the mock speaks more protocols, can be driven from tests, and 
 
 ### Changed
 
+- Building from source or with `go install` needs Go 1.26 or newer (was 1.25). Release binaries, Homebrew, Scoop and Docker are unaffected.
 - `mockmachina import` without a FILE, in a terminal, lists the specs found in this folder and below to pick from (also in the launcher). Schemas whose names the project already uses in another file are renamed with a prefix from the spec's file name, so an import never breaks the project.
+
+### Security
+
+- `golang.org/x/net` 0.60.0 fixes five HTTP/2 issues reachable through the gRPC server and the proxy: a server crash (GO-2026-6617), memory exhaustion from trailers (GO-2026-6603), high CPU from window changes (GO-2026-6611), a flow-control error (GO-2026-6612) and malformed headers accepted by the proxy's transport (GO-2026-6610).
 
 ## [0.1.2] - 2026-10-09
 

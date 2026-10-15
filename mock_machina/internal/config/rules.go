@@ -208,8 +208,7 @@ func operand(c *model.Condition, arg *yaml.Node) string {
 }
 
 func regexProblem(err error) string {
-	var se *syntax.Error
-	if errors.As(err, &se) {
+	if se, ok := errors.AsType[*syntax.Error](err); ok {
 		return string(se.Code) + ": `" + se.Expr + "`"
 	}
 	return err.Error()

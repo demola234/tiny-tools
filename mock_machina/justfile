@@ -32,7 +32,7 @@ update-golden:
     go test ./... -update
 
 # Oldest Go we support (engineering.md §1). Raising it is a deliberate change.
-go_floor := "1.25.0"
+go_floor := "1.26.0"
 
 # static checks
 lint:

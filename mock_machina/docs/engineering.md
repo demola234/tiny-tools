@@ -8,9 +8,9 @@ Related: [ADR 007](decisions/007-test-first.md) (test-first), [ADR 004](decision
 
 | Item | Rule |
 | --- | --- |
-| `go` directive | `go 1.25.0`. This is the oldest Go we support for `go install`. Raising it is a deliberate change in its own pull request |
-| Language and library features | Nothing newer than Go 1.25, even though local toolchains are newer. `go vet` (the `stdversion` check) and gopls flag standard-library calls that are too new |
-| CI Go versions | Every test job runs twice: with the `go.mod` version (`1.25.x`) and with `stable` |
+| `go` directive | `go 1.26.0`. This is the oldest Go we support for `go install`. Raising it is a deliberate change in its own pull request. It moved from 1.25.0 on 2026-10-15, because the fixes for five HTTP/2 advisories in `golang.org/x/net` (v0.60.0) need Go 1.26, and Go 1.25 stopped getting security fixes when Go 1.27 came out |
+| Language and library features | Nothing newer than Go 1.26, even though local toolchains are newer. `go vet` (the `stdversion` check) and gopls flag standard-library calls that are too new |
+| CI Go versions | Every test job runs twice: with the `go.mod` version (`1.26.x`) and with `stable` |
 | golangci-lint | v2.14.0, installed as a binary (`just tools`) and in CI through `golangci/golangci-lint-action`. Not through `go tool`: upstream advises against it, because its dependencies clash with ours |
 | Go-based dev tools | Run with `go run pkg@version`, with versions pinned in the `justfile` (gotestsum, govulncheck, actionlint). **Not** with the `tool` directive: tool dependencies join our module graph, and govulncheck v1.8.0 alone raised our `go` line to 1.26 |
 | New dependency | Needs a sentence in the pull request on why the standard library isn't enough. Prefer small, maintained, permissively licensed modules with few dependencies of their own |

@@ -56,8 +56,7 @@ func printError(w io.Writer, styles fang.Styles, err error) {
 	if errors.As(err, &exitErr) && exitErr.Err == nil {
 		return
 	}
-	var usageErr *usageError
-	if errors.As(err, &usageErr) {
+	if _, ok := errors.AsType[*usageError](err); ok {
 		fang.DefaultErrorHandler(w, styles, err)
 		return
 	}

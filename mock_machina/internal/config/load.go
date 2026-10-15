@@ -42,8 +42,7 @@ func Load(dir string) (*model.Project, Problems, error) { return LoadFS(os.DirFS
 
 func LoadFS(fsys fs.FS) (*model.Project, Problems, error) {
 	if _, err := fs.Stat(fsys, "."); err != nil {
-		var pathErr *fs.PathError
-		if errors.As(err, &pathErr) {
+		if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
 			err = pathErr.Err
 		}
 		return nil, nil, err

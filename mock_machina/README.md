@@ -27,7 +27,7 @@ mockmachina lint                                    # check every file without s
 
 ## Build from source
 
-Requires Go 1.25 or newer.
+Requires Go 1.26 or newer.
 
 ```sh
 git clone https://github.com/demola234/tiny-tools.git

@@ -4,7 +4,7 @@
 
 You need:
 
-- Go 1.25 or newer
+- Go 1.26 or newer
 - [just](https://github.com/casey/just)
 - golangci-lint v2.14.0: run `just tools`, or install it another way as long as `golangci-lint --version` reports 2.14.0
 

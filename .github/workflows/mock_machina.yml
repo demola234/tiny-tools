@@ -31,7 +31,7 @@ jobs:
           go-version: stable
           cache-dependency-path: mock_machina/go.sum
       - name: Go floor unchanged (engineering.md §1)
-        run: grep -qx 'go 1.25.0' go.mod || { echo "go.mod must say go 1.25.0; a dependency raised it"; exit 1; }
+        run: grep -qx 'go 1.26.0' go.mod || { echo "go.mod must say go 1.26.0; a dependency raised it"; exit 1; }
       - run: go mod tidy -diff
       - run: go vet ./...
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
