@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1873749013;
+  int get rustContentHash => 1149213031;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -83,31 +83,37 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 abstract class RustLibApi extends BaseApi {
   Future<void> crateApiStoreInitApp();
 
-  void crateApiStoreStoreClear();
+  void crateApiStoreStoreClear({required bool durable});
 
   void crateApiStoreStoreCompact();
 
   bool crateApiStoreStoreContains({required String key});
 
-  bool crateApiStoreStoreDelete({required String key});
+  bool crateApiStoreStoreDelete({required String key, required bool durable});
 
   bool crateApiStoreStoreDeleteFromList({
     required String key,
     required List<int> item,
     PlatformInt64? ttlMs,
     required bool encrypted,
+    required bool durable,
   });
 
   Uint8List crateApiStoreStoreGenerateEncryptionKey();
 
+  PlatformInt64 crateApiStoreStoreGenerationAddress();
+
   Uint8List? crateApiStoreStoreGet({required String key});
 
-  Map<String, Entry> crateApiStoreStoreGetAll();
+  List<StoredItem> crateApiStoreStoreGetAll();
+
+  StoredValue? crateApiStoreStoreGetEntry({required String key});
 
   PlatformInt64 crateApiStoreStoreIncrement({
     required String key,
     required PlatformInt64 delta,
     PlatformInt64? ttlMs,
+    required bool durable,
   });
 
   bool crateApiStoreStoreIsOpen();
@@ -123,9 +129,16 @@ abstract class RustLibApi extends BaseApi {
     required List<int> item,
     PlatformInt64? ttlMs,
     required bool encrypted,
+    required bool durable,
   });
 
+  void crateApiStoreStoreLock();
+
   void crateApiStoreStoreOpen({required String path});
+
+  Future<Preload> crateApiStoreStorePreload({
+    required PlatformInt64 limitBytes,
+  });
 
   PlatformInt64 crateApiStoreStorePurgeExpired();
 
@@ -134,6 +147,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> value,
     PlatformInt64? ttlMs,
     required bool encrypted,
+    required bool durable,
   });
 
   void crateApiStoreStoreSetEncryptionKey({required List<int> key});
@@ -143,6 +157,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> value,
     PlatformInt64? ttlMs,
     required bool encrypted,
+    required bool durable,
   });
 
   Stream<StorageEvent> crateApiStoreStoreWatch({required String pattern});
@@ -184,11 +199,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "init_app", argNames: []);
 
   @override
-  void crateApiStoreStoreClear() {
+  void crateApiStoreStoreClear({required bool durable}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_bool(durable, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
         },
         codec: SseCodec(
@@ -196,14 +212,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_store_error,
         ),
         constMeta: kCrateApiStoreStoreClearConstMeta,
-        argValues: [],
+        argValues: [durable],
         apiImpl: this,
       ),
     );
   }
 
   TaskConstMeta get kCrateApiStoreStoreClearConstMeta =>
-      const TaskConstMeta(debugName: "store_clear", argNames: []);
+      const TaskConstMeta(debugName: "store_clear", argNames: ["durable"]);
 
   @override
   void crateApiStoreStoreCompact() {
@@ -251,12 +267,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "store_contains", argNames: ["key"]);
 
   @override
-  bool crateApiStoreStoreDelete({required String key}) {
+  bool crateApiStoreStoreDelete({required String key, required bool durable}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(key, serializer);
+          sse_encode_bool(durable, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
         },
         codec: SseCodec(
@@ -264,14 +281,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_store_error,
         ),
         constMeta: kCrateApiStoreStoreDeleteConstMeta,
-        argValues: [key],
+        argValues: [key, durable],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiStoreStoreDeleteConstMeta =>
-      const TaskConstMeta(debugName: "store_delete", argNames: ["key"]);
+  TaskConstMeta get kCrateApiStoreStoreDeleteConstMeta => const TaskConstMeta(
+    debugName: "store_delete",
+    argNames: ["key", "durable"],
+  );
 
   @override
   bool crateApiStoreStoreDeleteFromList({
@@ -279,6 +298,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> item,
     PlatformInt64? ttlMs,
     required bool encrypted,
+    required bool durable,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -288,6 +308,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_list_prim_u_8_loose(item, serializer);
           sse_encode_opt_box_autoadd_i_64(ttlMs, serializer);
           sse_encode_bool(encrypted, serializer);
+          sse_encode_bool(durable, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
         },
         codec: SseCodec(
@@ -295,7 +316,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_store_error,
         ),
         constMeta: kCrateApiStoreStoreDeleteFromListConstMeta,
-        argValues: [key, item, ttlMs, encrypted],
+        argValues: [key, item, ttlMs, encrypted, durable],
         apiImpl: this,
       ),
     );
@@ -304,7 +325,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiStoreStoreDeleteFromListConstMeta =>
       const TaskConstMeta(
         debugName: "store_delete_from_list",
-        argNames: ["key", "item", "ttlMs", "encrypted"],
+        argNames: ["key", "item", "ttlMs", "encrypted", "durable"],
       );
 
   @override
@@ -333,13 +354,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  PlatformInt64 crateApiStoreStoreGenerationAddress() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_i_64,
+          decodeErrorData: sse_decode_store_error,
+        ),
+        constMeta: kCrateApiStoreStoreGenerationAddressConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiStoreStoreGenerationAddressConstMeta =>
+      const TaskConstMeta(debugName: "store_generation_address", argNames: []);
+
+  @override
   Uint8List? crateApiStoreStoreGet({required String key}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(key, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_list_prim_u_8_strict,
@@ -356,15 +399,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "store_get", argNames: ["key"]);
 
   @override
-  Map<String, Entry> crateApiStoreStoreGetAll() {
+  List<StoredItem> crateApiStoreStoreGetAll() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_Map_String_entry_None,
+          decodeSuccessData: sse_decode_list_stored_item,
           decodeErrorData: sse_decode_store_error,
         ),
         constMeta: kCrateApiStoreStoreGetAllConstMeta,
@@ -378,10 +421,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "store_get_all", argNames: []);
 
   @override
+  StoredValue? crateApiStoreStoreGetEntry({required String key}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(key, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_stored_value,
+          decodeErrorData: sse_decode_store_error,
+        ),
+        constMeta: kCrateApiStoreStoreGetEntryConstMeta,
+        argValues: [key],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiStoreStoreGetEntryConstMeta =>
+      const TaskConstMeta(debugName: "store_get_entry", argNames: ["key"]);
+
+  @override
   PlatformInt64 crateApiStoreStoreIncrement({
     required String key,
     required PlatformInt64 delta,
     PlatformInt64? ttlMs,
+    required bool durable,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -390,14 +457,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(key, serializer);
           sse_encode_i_64(delta, serializer);
           sse_encode_opt_box_autoadd_i_64(ttlMs, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+          sse_encode_bool(durable, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_i_64,
           decodeErrorData: sse_decode_store_error,
         ),
         constMeta: kCrateApiStoreStoreIncrementConstMeta,
-        argValues: [key, delta, ttlMs],
+        argValues: [key, delta, ttlMs, durable],
         apiImpl: this,
       ),
     );
@@ -406,7 +474,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiStoreStoreIncrementConstMeta =>
       const TaskConstMeta(
         debugName: "store_increment",
-        argNames: ["key", "delta", "ttlMs"],
+        argNames: ["key", "delta", "ttlMs", "durable"],
       );
 
   @override
@@ -415,7 +483,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -437,7 +505,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_String,
@@ -459,7 +527,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_i_64,
@@ -482,7 +550,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(key, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_list_list_prim_u_8_strict,
@@ -504,6 +572,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> item,
     PlatformInt64? ttlMs,
     required bool encrypted,
+    required bool durable,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -513,14 +582,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_list_prim_u_8_loose(item, serializer);
           sse_encode_opt_box_autoadd_i_64(ttlMs, serializer);
           sse_encode_bool(encrypted, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
+          sse_encode_bool(durable, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_i_64,
           decodeErrorData: sse_decode_store_error,
         ),
         constMeta: kCrateApiStoreStoreListPushConstMeta,
-        argValues: [key, item, ttlMs, encrypted],
+        argValues: [key, item, ttlMs, encrypted, durable],
         apiImpl: this,
       ),
     );
@@ -528,8 +598,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiStoreStoreListPushConstMeta => const TaskConstMeta(
     debugName: "store_list_push",
-    argNames: ["key", "item", "ttlMs", "encrypted"],
+    argNames: ["key", "item", "ttlMs", "encrypted", "durable"],
   );
+
+  @override
+  void crateApiStoreStoreLock() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_store_error,
+        ),
+        constMeta: kCrateApiStoreStoreLockConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiStoreStoreLockConstMeta =>
+      const TaskConstMeta(debugName: "store_lock", argNames: []);
 
   @override
   void crateApiStoreStoreOpen({required String path}) {
@@ -538,7 +630,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(path, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -555,12 +647,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "store_open", argNames: ["path"]);
 
   @override
+  Future<Preload> crateApiStoreStorePreload({
+    required PlatformInt64 limitBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(limitBytes, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_preload,
+          decodeErrorData: sse_decode_store_error,
+        ),
+        constMeta: kCrateApiStoreStorePreloadConstMeta,
+        argValues: [limitBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiStoreStorePreloadConstMeta =>
+      const TaskConstMeta(debugName: "store_preload", argNames: ["limitBytes"]);
+
+  @override
   PlatformInt64 crateApiStoreStorePurgeExpired() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_i_64,
@@ -582,6 +704,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> value,
     PlatformInt64? ttlMs,
     required bool encrypted,
+    required bool durable,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -591,14 +714,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_list_prim_u_8_loose(value, serializer);
           sse_encode_opt_box_autoadd_i_64(ttlMs, serializer);
           sse_encode_bool(encrypted, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
+          sse_encode_bool(durable, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_store_error,
         ),
         constMeta: kCrateApiStoreStoreSetConstMeta,
-        argValues: [key, value, ttlMs, encrypted],
+        argValues: [key, value, ttlMs, encrypted, durable],
         apiImpl: this,
       ),
     );
@@ -606,7 +730,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiStoreStoreSetConstMeta => const TaskConstMeta(
     debugName: "store_set",
-    argNames: ["key", "value", "ttlMs", "encrypted"],
+    argNames: ["key", "value", "ttlMs", "encrypted", "durable"],
   );
 
   @override
@@ -616,7 +740,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_prim_u_8_loose(key, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -641,6 +765,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> value,
     PlatformInt64? ttlMs,
     required bool encrypted,
+    required bool durable,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -650,14 +775,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_list_prim_u_8_loose(value, serializer);
           sse_encode_opt_box_autoadd_i_64(ttlMs, serializer);
           sse_encode_bool(encrypted, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
+          sse_encode_bool(durable, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 24)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
           decodeErrorData: sse_decode_store_error,
         ),
         constMeta: kCrateApiStoreStoreSetIfAbsentConstMeta,
-        argValues: [key, value, ttlMs, encrypted],
+        argValues: [key, value, ttlMs, encrypted, durable],
         apiImpl: this,
       ),
     );
@@ -666,7 +792,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiStoreStoreSetIfAbsentConstMeta =>
       const TaskConstMeta(
         debugName: "store_set_if_absent",
-        argNames: ["key", "value", "ttlMs", "encrypted"],
+        argNames: ["key", "value", "ttlMs", "encrypted", "durable"],
       );
 
   @override
@@ -678,7 +804,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(pattern, serializer);
           sse_encode_StreamSink_storage_event_Sse(sink, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -701,14 +827,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AnyhowException dco_decode_AnyhowException(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return AnyhowException(raw as String);
-  }
-
-  @protected
-  Map<String, Entry> dco_decode_Map_String_entry_None(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return Map.fromEntries(
-      dco_decode_list_record_string_entry(raw).map((e) => MapEntry(e.$1, e.$2)),
-    );
   }
 
   @protected
@@ -738,22 +856,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  BigInt dco_decode_box_autoadd_u_64(dynamic raw) {
+  StoredValue dco_decode_box_autoadd_stored_value(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_u_64(raw);
-  }
-
-  @protected
-  Entry dco_decode_entry(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
-    return Entry(
-      value: dco_decode_list_prim_u_8_strict(arr[0]),
-      encrypted: dco_decode_bool(arr[1]),
-      expiresAt: dco_decode_opt_box_autoadd_u_64(arr[2]),
-    );
+    return dco_decode_stored_value(raw);
   }
 
   @protected
@@ -787,9 +892,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<(String, Entry)> dco_decode_list_record_string_entry(dynamic raw) {
+  List<StoredItem> dco_decode_list_stored_item(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_record_string_entry).toList();
+    return (raw as List<dynamic>).map(dco_decode_stored_item).toList();
   }
 
   @protected
@@ -799,9 +904,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw) {
+  StoredValue? dco_decode_opt_box_autoadd_stored_value(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_u_64(raw);
+    return raw == null ? null : dco_decode_box_autoadd_stored_value(raw);
   }
 
   @protected
@@ -817,13 +922,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  (String, Entry) dco_decode_record_string_entry(dynamic raw) {
+  Preload dco_decode_preload(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2) {
-      throw Exception('Expected 2 elements, got ${arr.length}');
-    }
-    return (dco_decode_String(arr[0]), dco_decode_entry(arr[1]));
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return Preload(
+      generation: dco_decode_i_64(arr[0]),
+      complete: dco_decode_bool(arr[1]),
+      items: dco_decode_list_stored_item(arr[2]),
+    );
   }
 
   @protected
@@ -879,9 +987,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  BigInt dco_decode_u_64(dynamic raw) {
+  StoredItem dco_decode_stored_item(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dcoDecodeU64(raw);
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return StoredItem(
+      key: dco_decode_String(arr[0]),
+      value: dco_decode_list_prim_u_8_strict(arr[1]),
+      encrypted: dco_decode_bool(arr[2]),
+      expiresAtMs: dco_decode_opt_box_autoadd_i_64(arr[3]),
+    );
+  }
+
+  @protected
+  StoredValue dco_decode_stored_value(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return StoredValue(
+      value: dco_decode_list_prim_u_8_strict(arr[0]),
+      encrypted: dco_decode_bool(arr[1]),
+      expiresAtMs: dco_decode_opt_box_autoadd_i_64(arr[2]),
+    );
   }
 
   @protected
@@ -907,15 +1036,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_String(deserializer);
     return AnyhowException(inner);
-  }
-
-  @protected
-  Map<String, Entry> sse_decode_Map_String_entry_None(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_list_record_string_entry(deserializer);
-    return Map.fromEntries(inner.map((e) => MapEntry(e.$1, e.$2)));
   }
 
   @protected
@@ -946,22 +1066,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer) {
+  StoredValue sse_decode_box_autoadd_stored_value(
+    SseDeserializer deserializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_u_64(deserializer));
-  }
-
-  @protected
-  Entry sse_decode_entry(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_value = sse_decode_list_prim_u_8_strict(deserializer);
-    var var_encrypted = sse_decode_bool(deserializer);
-    var var_expiresAt = sse_decode_opt_box_autoadd_u_64(deserializer);
-    return Entry(
-      value: var_value,
-      encrypted: var_encrypted,
-      expiresAt: var_expiresAt,
-    );
+    return (sse_decode_stored_value(deserializer));
   }
 
   @protected
@@ -1011,15 +1120,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<(String, Entry)> sse_decode_list_record_string_entry(
-    SseDeserializer deserializer,
-  ) {
+  List<StoredItem> sse_decode_list_stored_item(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <(String, Entry)>[];
+    var ans_ = <StoredItem>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_record_string_entry(deserializer));
+      ans_.add(sse_decode_stored_item(deserializer));
     }
     return ans_;
   }
@@ -1036,11 +1143,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer) {
+  StoredValue? sse_decode_opt_box_autoadd_stored_value(
+    SseDeserializer deserializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_u_64(deserializer));
+      return (sse_decode_box_autoadd_stored_value(deserializer));
     } else {
       return null;
     }
@@ -1071,11 +1180,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  (String, Entry) sse_decode_record_string_entry(SseDeserializer deserializer) {
+  Preload sse_decode_preload(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_field0 = sse_decode_String(deserializer);
-    var var_field1 = sse_decode_entry(deserializer);
-    return (var_field0, var_field1);
+    var var_generation = sse_decode_i_64(deserializer);
+    var var_complete = sse_decode_bool(deserializer);
+    var var_items = sse_decode_list_stored_item(deserializer);
+    return Preload(
+      generation: var_generation,
+      complete: var_complete,
+      items: var_items,
+    );
   }
 
   @protected
@@ -1145,9 +1259,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+  StoredItem sse_decode_stored_item(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getBigUint64();
+    var var_key = sse_decode_String(deserializer);
+    var var_value = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_encrypted = sse_decode_bool(deserializer);
+    var var_expiresAtMs = sse_decode_opt_box_autoadd_i_64(deserializer);
+    return StoredItem(
+      key: var_key,
+      value: var_value,
+      encrypted: var_encrypted,
+      expiresAtMs: var_expiresAtMs,
+    );
+  }
+
+  @protected
+  StoredValue sse_decode_stored_value(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_value = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_encrypted = sse_decode_bool(deserializer);
+    var var_expiresAtMs = sse_decode_opt_box_autoadd_i_64(deserializer);
+    return StoredValue(
+      value: var_value,
+      encrypted: var_encrypted,
+      expiresAtMs: var_expiresAtMs,
+    );
   }
 
   @protected
@@ -1180,18 +1316,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.message, serializer);
-  }
-
-  @protected
-  void sse_encode_Map_String_entry_None(
-    Map<String, Entry> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_record_string_entry(
-      self.entries.map((e) => (e.key, e.value)).toList(),
-      serializer,
-    );
   }
 
   @protected
@@ -1233,17 +1357,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer) {
+  void sse_encode_box_autoadd_stored_value(
+    StoredValue self,
+    SseSerializer serializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_64(self, serializer);
-  }
-
-  @protected
-  void sse_encode_entry(Entry self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_prim_u_8_strict(self.value, serializer);
-    sse_encode_bool(self.encrypted, serializer);
-    sse_encode_opt_box_autoadd_u_64(self.expiresAt, serializer);
+    sse_encode_stored_value(self, serializer);
   }
 
   @protected
@@ -1296,14 +1415,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_record_string_entry(
-    List<(String, Entry)> self,
+  void sse_encode_list_stored_item(
+    List<StoredItem> self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
-      sse_encode_record_string_entry(item, serializer);
+      sse_encode_stored_item(item, serializer);
     }
   }
 
@@ -1321,12 +1440,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer) {
+  void sse_encode_opt_box_autoadd_stored_value(
+    StoredValue? self,
+    SseSerializer serializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     sse_encode_bool(self != null, serializer);
     if (self != null) {
-      sse_encode_box_autoadd_u_64(self, serializer);
+      sse_encode_box_autoadd_stored_value(self, serializer);
     }
   }
 
@@ -1357,13 +1479,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_record_string_entry(
-    (String, Entry) self,
-    SseSerializer serializer,
-  ) {
+  void sse_encode_preload(Preload self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.$1, serializer);
-    sse_encode_entry(self.$2, serializer);
+    sse_encode_i_64(self.generation, serializer);
+    sse_encode_bool(self.complete, serializer);
+    sse_encode_list_stored_item(self.items, serializer);
   }
 
   @protected
@@ -1425,9 +1545,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+  void sse_encode_stored_item(StoredItem self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putBigUint64(self);
+    sse_encode_String(self.key, serializer);
+    sse_encode_list_prim_u_8_strict(self.value, serializer);
+    sse_encode_bool(self.encrypted, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.expiresAtMs, serializer);
+  }
+
+  @protected
+  void sse_encode_stored_value(StoredValue self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.value, serializer);
+    sse_encode_bool(self.encrypted, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.expiresAtMs, serializer);
   }
 
   @protected

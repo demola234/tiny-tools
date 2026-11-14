@@ -9,6 +9,7 @@ chat:
       state: unauthorized
     - when: { path.room: closed }
       state: not_found
+  active: dropped
   states:
     online:
       send:

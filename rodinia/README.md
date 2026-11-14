@@ -8,6 +8,7 @@ Fast, synchronous, encrypted key-value storage for Flutter, backed by a Rust cor
 rodinia/
 ├── rodinia_ffi/                       # Rust crate — the storage engine + flutter_rust_bridge API
 ├── rodinia_flutter/                   # Flutter plugin — wraps rodinia_ffi for Dart consumers
+├── benchmarks/                        # Dart benchmarks vs hive_ce, shared_preferences, sqflite, flutter_secure_storage
 └── examples/
     └── rodinia_flutter_example/       # Demo app, depends on rodinia_flutter by path
 ```
@@ -18,6 +19,11 @@ no Flutter toolchain required). `rodinia_flutter` exposes it to Dart via
 `flutter_rust_bridge.yaml` points `rust_root` at `../rodinia_ffi`, and the
 Android/iOS/macOS/Linux/Windows build configs invoke `rodinia_ffi`'s `Cargo.toml`
 directly via `cargokit` — there's no copy of the Rust source inside the plugin.
+
+## Documentation
+
+How the engine works, the file format, the full Dart API and the development
+workflow are in [docs/](docs/README.md).
 
 ## Getting started
 

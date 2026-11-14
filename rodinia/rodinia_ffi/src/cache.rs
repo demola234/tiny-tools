@@ -14,6 +14,48 @@ impl Entry {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredValue {
+    pub value: Vec<u8>,
+    pub encrypted: bool,
+    pub expires_at_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredItem {
+    pub key: String,
+    pub value: Vec<u8>,
+    pub encrypted: bool,
+    pub expires_at_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Preload {
+    pub generation: i64,
+    pub complete: bool,
+    pub items: Vec<StoredItem>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ValueLoc {
+    pub offset: u64,
+    pub len: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IndexEntry {
+    pub loc: ValueLoc,
+    pub record_len: u32,
+    pub encrypted: bool,
+    pub expires_at: Option<u64>,
+}
+
+impl IndexEntry {
+    pub fn is_expired(&self, now_ms: u64) -> bool {
+        matches!(self.expires_at, Some(t) if t <= now_ms)
+    }
+}
+
 pub fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

@@ -1807,3 +1807,177 @@ states:
 - **Third-party code.** htmx and its SSE extension are code we didn't write, running against our CSP. Pin the version, record the checksum, and check the console in each browser.
 - **Golden files.** They can hide a bad change if people update them without reading the diff. Keep each fragment small.
 - **A fast event stream.** It could slow the page. `app.js` caps the log at 500 rows, and the UI stream drops events like the API stream does (P8-6).
+
+## Phase 9 follow-up: gaps against the mockup
+
+### Goal and scope
+
+A comparison with [the mockup](MockMechina%20Dashboard.html) on 2026-10-15 found features that a local mock can offer and Phase 9 left out. This follow-up builds the small ones: those that sit on what already exists. They ship in 0.2.0 with the rest of Phase 9.
+
+**In scope**
+
+- **Coverage:**
+  - four summary cards: states seen, error states seen, never seen, and routes fully covered;
+  - a bar on each route;
+  - clicking a state not seen yet serves it (pins it);
+  - "Serve next unseen";
+  - "Copy QA checklist".
+- **Overview:**
+  - a contract status panel: routes by draft, agreed, implemented and deprecated;
+  - an Errors filter on the newest requests.
+- **Routes pane:** the route's backend and frontend owners, its webhooks for the state being served, and how many times the route has been called since start or reset.
+- **Scenarios:**
+  - copy buttons on each card;
+  - "Save current states", which writes the current pins to a new scenario file.
+- **Data:** "Add an item", which POSTs JSON into a collection as the CRUD route would.
+- **Sidebar:** Search and Shortcuts entries, and an API docs link.
+- **API docs:** Swagger UI for the current project at `/__mockmachina/docs/`, and the OpenAPI file at `/__mockmachina/openapi.yaml`.
+- Each new action gets a JSON endpoint too, so scripts can do what the page does.
+
+**Out of scope** (listed for later; see the comparison in the session notes)
+
+- Runtime controls:
+  - a Serve toggle per route;
+  - network profiles;
+  - a controllable clock.
+- A rendered body preview, and a Review view of `diff` against `main`.
+- Larger features:
+  - a fake OIDC server;
+  - recording real responses;
+  - pagination and rate-limit behaviours;
+  - editing routes in the browser.
+- Anything needing accounts or a hosted service: feature specs, people and teams, billing, environments and deploying.
+
+### Decisions
+
+| # | Question | Decision | Why |
+| --- | --- | --- | --- |
+| G-1 | What counts as an error state | A status of 400 or above, a gRPC code other than `OK`, or a fault | The same test the request counts use, applied to the state instead of a request |
+| G-2 | What "Serve next unseen" picks | The first state not served yet, in route id order and then file order. It pins that one state and the page names it | Predictable, so QA can work down the list; one pin at a time keeps the rest of the app as it was |
+| G-3 | What "Save current states" writes | `scenarios/<name>.yaml` with every pinned route and its state, plus the title and description typed in. It refuses a name that already exists, an invalid name, or no pins. The file goes through the loader on the next reload like any other | Pins are the only runtime state a scenario can describe; never overwriting keeps a reviewed file safe |
+| G-4 | What "Add an item" does | The same as POST on the collection's CRUD route: an id is filled in when missing, and a duplicate id is refused. It changes memory only, never `data/` | One set of CRUD rules; files stay the source of truth |
+| G-5 | Where API docs live | `/__mockmachina/docs/` with the existing `internal/docs` Swagger UI, and `/__mockmachina/openapi.yaml` from the existing exporter, built from the project in memory so a reload shows up. They're outside the dashboard shell, under the control API's access rules | Reuses `mockmachina docs`; Swagger UI brings its own page and scripts, so it stays out from under the dashboard's CSP |
+
+### Build order
+
+| # | Task | Done when | Status |
+| --- | --- | --- | --- |
+| 1 | Coverage cards and route bars | Golden file with each card and a bar | Planned |
+| 2 | Coverage actions: click to serve, Serve next unseen, Copy QA checklist | A click pins the state; next unseen pins the first one in order and names it; the checklist lists every unseen state | Planned |
+| 3 | Overview: contract status panel and an Errors filter | Golden file; the filter shows only error rows | Planned |
+| 4 | Routes pane: owners, webhooks, call count (`Memory.Calls`) | Golden file; the count follows requests and reset | Planned |
+| 5 | Scenarios: copy buttons, and Save current states (`config.SaveScenario`, `POST /__mockmachina/scenarios`, a form) | The file is written and lints clean; a taken name, a bad name and no pins are refused | Planned |
+| 6 | Data: Add an item (`POST /__mockmachina/collections/{name}`, a form) | The item is listed with an id; bad JSON and a duplicate id are refused | Planned |
+| 7 | Sidebar entries, API docs and the OpenAPI file | Docs show the current routes; the file downloads; a reload changes both | Planned |
+| 8 | Docs, changelog and checklist rows | `docs/dashboard.md` and `docs/control-api.md` cover every new action | Planned |
+
+## Roadmap after Phase 9: closing the gap with the mockup
+
+Compared with [the mockup](MockMechina%20Dashboard.html) on 2026-10-15. The dashboard built in Phase 9 covers its runtime half: routes, traffic, data, scenarios and coverage. The rest falls into two kinds of work:
+
+- **Local:** everything that works against one running mock and the git repository on your machine. It ships in the `mockmachina` binary, works offline and needs no account. The Phase 9 polish, then Phases 10 to 14 below.
+- **Hosted:** everything that needs accounts, a server on the internet or billing, under mockmachina.dev. That's a separate product with its own plan: [MockMachina Cloud Plan](MockMachina%20Cloud%20Plan.md).
+
+The mockup spells the name "MockMechina" in places; the product is MockMachina.
+
+### Where each part of the mockup lands
+
+| Mockup area | What it shows | Status or phase |
+| --- | --- | --- |
+| Shell | Sidebar with counts, top bar, ⌘K, shortcuts, theme | Built (Phase 9) |
+| Shell | Icons, motion, a phone layout | Phase 9 polish |
+| Shell | Settings | Phase 9 polish (read-only view of `config.yaml`); editing in 10; organisation settings in Cloud |
+| Shell | Network selector, notification bell, "New" menu, project switcher, user menu | Network: 11. "New" menu: 10. Bell, switcher, user menu: Cloud |
+| Overview | Cards, newest requests, contract status | Built, apart from contract status (follow-up) |
+| Overview | "Get your team set up" checklist, "Since you last looked", breaking-change and staging cards | 13 (local, from git and `diff`); staging verify needs `diff --live` (13) |
+| Routes | List, filter, states, pin, default, rules, Try it | Built |
+| Routes | Owners, webhooks, call count | Follow-up |
+| Routes | Viewing any state's response, rules and webhooks without pinning it (tabs) | Phase 9 polish |
+| Routes | Serve toggle (by status, mock, real backend) | 11 |
+| Routes | Rendered preview with seed and locale, "Traffic for this route", live socket and stream view | 11 |
+| Routes | New state, edit status, latency, fault, headers and body, pagination and rate-limit behaviours, "Suggest missing states" | 10 (AI parts in 14) |
+| Traffic | Live log, filters, pause | Built |
+| Traffic | Record real responses | 12 |
+| Data | Collections, items, delete, reset | Built; "Add an item" in the follow-up; quantity editing in 10 |
+| Scenarios | Cards, apply, header examples | Built; copy and "Save current states" in the follow-up |
+| Scenarios | A clock per scenario, owners on cards | Clock dropped with the simulators; owners in 13 |
+| Coverage | Per-route states | Built; cards, click to serve, next unseen and QA checklist in the follow-up |
+| Simulators | Fake OIDC sign-in server, clock | Dropped on 2026-10-15 |
+| API docs | Generated docs, Export OpenAPI | Follow-up |
+| Import / Export | Import dialog, export formats | 10 |
+| Review | Contract diff, checks, AI explanation | 13; AI explanation in 14 |
+| Feature specs | Specs as Markdown in the repo, with problem, goals, flows, sequence, design, decisions, risks | 13 (local viewer and editor); sharing outside the repo is Cloud |
+| People and teams, Invite | `team.yaml`, roles, route group owners, setup message | 13 (as files and pull requests); GitHub team sync is Cloud |
+| Connect your app, GitHub check, Open on a phone | Setup guides, workflow YAML, QR code to the LAN address | 13 |
+| New route, Draft an endpoint with AI | `mockmachina add` in a dialog; AI draft | 10; AI draft in 14 |
+| Environments, Deploy to cloud, custom domain, PR previews | Hosted mocks | Cloud |
+| Billing, plans, invoices, payment, Enterprise, Delete organization, audit log, access, approvals | Accounts and money | Cloud |
+
+### Phases
+
+| Phase | Theme | Main work | Size |
+| --- | --- | --- | --- |
+| 9 follow-up | Small gaps | Already planned above | S |
+| 9 polish | Look and feel | Planned below; with the follow-up, it comes before the 0.2.0 release | M |
+| 10 | Authoring in the browser | Edits that keep comments and layout (built on `config`'s existing writers: `add`, `add_state`, `SetActive`); New route, New state and Edit route details dialogs (status, latency, jitter, fault, headers, body); behaviours (pagination, rate limit) in the file format; editing Settings (`config.yaml`); Import and Export dialogs; editing collection items | L |
+| 11 | Runtime controls | A Serve toggle per route at runtime; network profiles (normal, slow 3G, flaky, offline) with a top-bar selector and `X-Mock-Network`; a side-effect-free render for the rendered preview; per-route traffic; a live view of WebSocket and SSE sessions | M |
+| 12 | Recording | Recording proxied responses as new states. The simulators (clock, fake OIDC server) were dropped on 2026-10-15 | M |
+| 13 | Team work in the repo | A Review view (`diff` against the base branch, lint, `diff --live` checks); "Since you last looked" from git history; feature specs in `.mockmachina/specs/` (viewer, then editor); `team.yaml` with people, roles and route-group owners, invites as a branch and a setup message; setup guides (connect your app, GitHub check, open on a phone with a QR code) and the onboarding checklist | L |
+| 14 | AI on the running mock | MCP tools for the control API (pin, reset, scenarios, coverage, traffic); "Suggest missing states" and "Draft an endpoint" in the dashboard as a hand-off to your assistant first, with an opt-in direct call to the Claude API later (`ANTHROPIC_API_KEY`, off by default); an optional AI explanation in the pull-request comment | M |
+
+Order, chosen on 2026-10-15: the follow-up and the polish, then release 0.2.0, then 10 (editing, the heart of the Routes page), then 11 and 14. 12 and 13 are independent. Each phase gets its own section in this playbook, with decisions and a build order, before any code.
+
+### Decisions to make before Phase 10
+
+- **Should the dashboard edit files?** Phase 10 changes P9-10 ("read-only apart from pins and Make default"). Recommended: yes, but only through the loader's writers, never by rewriting a whole file, and every save is checked by `lint` before it's written.
+- **Network profiles at runtime:** in memory like pins (recommended), or in `config.yaml`?
+- **Where AI runs:** hand-off only, or also a direct API call with your key?
+
+## Phase 9 polish: look and feel
+
+### Goal and scope
+
+Make the dashboard feel like the mockup, not only work like it. It comes before the 0.2.0 release, with the follow-up above.
+
+**In scope**
+
+- **Icons:**
+  - a line-icon set like the mockup's, kept in the repo as an SVG sprite (Lucide, ISC licence, only the icons used);
+  - used in the sidebar, buttons, cards and empty states;
+  - inline `<svg><use>` is allowed by the CSP.
+- **Motion:**
+  - new traffic rows fade and slide in;
+  - htmx swaps settle with a short transition;
+  - dialogs ease in, and chips and buttons respond on press;
+  - everything is off under `prefers-reduced-motion`.
+- **Phone layout:**
+  - at narrow widths the sidebar becomes a drawer behind a menu button in the top bar;
+  - traffic rows, the route list and the pane, tables and cards are made compact;
+  - checked at 390 px with device emulation, not a wide window.
+- **Settings:** a read-only view of the effective settings: host, ports, proxy, seed, locale, CORS, the control token's source (never its value), and the dashboard's theme. Editing comes in Phase 10.
+- **All the states:** in the Routes pane, a state chip also opens that state's details without pinning it. Tabs for Response, Rules and Webhooks, and a "Pin this state" button, as in the mockup.
+- **Visual pass against the mockup:** spacing, type sizes, colours of methods and statuses, card headers and empty states.
+
+**Out of scope**
+
+- Anything that changes files (Phase 10).
+
+### Decisions
+
+| # | Question | Decision | Why |
+| --- | --- | --- | --- |
+| PL-1 | Icon source | Lucide icons copied into one SVG sprite, with their ISC licence notice | Matches the mockup's style; no font or network request; only the icons used ship |
+| PL-2 | Motion | CSS only, under 200 ms, disabled by `prefers-reduced-motion` | Feels alive without slowing anyone down or adding script |
+| PL-3 | Phone navigation | A `<dialog>` drawer for the sidebar below 760 px | Native focus handling and Esc; same markup as the desktop sidebar |
+| PL-4 | Viewing a state vs pinning it | Clicking a chip shows the state; a separate "Pin" button pins it | Looking shouldn't change what the app receives; this changes Phase 9's "click to pin", so the docs and checklist change with it |
+
+### Build order
+
+| # | Task | Done when | Status |
+| --- | --- | --- | --- |
+| 1 | Icon sprite and its use across the shell and views | Golden files show icons; no CSP errors in Chrome | Planned |
+| 2 | Motion with reduced-motion support | Rows animate in Chrome; nothing animates with reduced motion emulated | Planned |
+| 3 | Phone layout: drawer, compact rows, pane and tables | Screenshots at 390 px for every view; no sideways scroll; the drawer works with the keyboard | Planned |
+| 4 | State tabs in the Routes pane (view, then pin) | Golden files for each tab; pinning still works; checklist updated | Planned |
+| 5 | Settings view | Golden file; the token's value never appears | Planned |
+| 6 | Visual pass against the mockup, side by side | Screenshots of each view next to the mockup's | Planned |

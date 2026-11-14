@@ -6,22 +6,79 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-class Entry {
-  final Uint8List value;
-  final bool encrypted;
-  final BigInt? expiresAt;
+class Preload {
+  final PlatformInt64 generation;
+  final bool complete;
+  final List<StoredItem> items;
 
-  const Entry({required this.value, required this.encrypted, this.expiresAt});
+  const Preload({
+    required this.generation,
+    required this.complete,
+    required this.items,
+  });
 
   @override
-  int get hashCode => value.hashCode ^ encrypted.hashCode ^ expiresAt.hashCode;
+  int get hashCode => generation.hashCode ^ complete.hashCode ^ items.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is Entry &&
+      other is Preload &&
+          runtimeType == other.runtimeType &&
+          generation == other.generation &&
+          complete == other.complete &&
+          items == other.items;
+}
+
+class StoredItem {
+  final String key;
+  final Uint8List value;
+  final bool encrypted;
+  final PlatformInt64? expiresAtMs;
+
+  const StoredItem({
+    required this.key,
+    required this.value,
+    required this.encrypted,
+    this.expiresAtMs,
+  });
+
+  @override
+  int get hashCode =>
+      key.hashCode ^ value.hashCode ^ encrypted.hashCode ^ expiresAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StoredItem &&
+          runtimeType == other.runtimeType &&
+          key == other.key &&
+          value == other.value &&
+          encrypted == other.encrypted &&
+          expiresAtMs == other.expiresAtMs;
+}
+
+class StoredValue {
+  final Uint8List value;
+  final bool encrypted;
+  final PlatformInt64? expiresAtMs;
+
+  const StoredValue({
+    required this.value,
+    required this.encrypted,
+    this.expiresAtMs,
+  });
+
+  @override
+  int get hashCode =>
+      value.hashCode ^ encrypted.hashCode ^ expiresAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StoredValue &&
           runtimeType == other.runtimeType &&
           value == other.value &&
           encrypted == other.encrypted &&
-          expiresAt == other.expiresAt;
+          expiresAtMs == other.expiresAtMs;
 }

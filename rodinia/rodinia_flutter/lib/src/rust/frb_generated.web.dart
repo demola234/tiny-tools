@@ -27,9 +27,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
-  Map<String, Entry> dco_decode_Map_String_entry_None(dynamic raw);
-
-  @protected
   RustStreamSink<StorageEvent> dco_decode_StreamSink_storage_event_Sse(
     dynamic raw,
   );
@@ -44,10 +41,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
   @protected
-  BigInt dco_decode_box_autoadd_u_64(dynamic raw);
-
-  @protected
-  Entry dco_decode_entry(dynamic raw);
+  StoredValue dco_decode_box_autoadd_stored_value(dynamic raw);
 
   @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
@@ -65,13 +59,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
-  List<(String, Entry)> dco_decode_list_record_string_entry(dynamic raw);
+  List<StoredItem> dco_decode_list_stored_item(dynamic raw);
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
 
   @protected
-  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+  StoredValue? dco_decode_opt_box_autoadd_stored_value(dynamic raw);
 
   @protected
   List<Uint8List>? dco_decode_opt_list_list_prim_u_8_strict(dynamic raw);
@@ -80,7 +74,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
   @protected
-  (String, Entry) dco_decode_record_string_entry(dynamic raw);
+  Preload dco_decode_preload(dynamic raw);
 
   @protected
   StorageEvent dco_decode_storage_event(dynamic raw);
@@ -89,7 +83,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   StoreError dco_decode_store_error(dynamic raw);
 
   @protected
-  BigInt dco_decode_u_64(dynamic raw);
+  StoredItem dco_decode_stored_item(dynamic raw);
+
+  @protected
+  StoredValue dco_decode_stored_value(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -102,11 +99,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
-
-  @protected
-  Map<String, Entry> sse_decode_Map_String_entry_None(
-    SseDeserializer deserializer,
-  );
 
   @protected
   RustStreamSink<StorageEvent> sse_decode_StreamSink_storage_event_Sse(
@@ -123,10 +115,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
-  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
-
-  @protected
-  Entry sse_decode_entry(SseDeserializer deserializer);
+  StoredValue sse_decode_box_autoadd_stored_value(SseDeserializer deserializer);
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
@@ -146,15 +135,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
-  List<(String, Entry)> sse_decode_list_record_string_entry(
-    SseDeserializer deserializer,
-  );
+  List<StoredItem> sse_decode_list_stored_item(SseDeserializer deserializer);
 
   @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
-  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+  StoredValue? sse_decode_opt_box_autoadd_stored_value(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<Uint8List>? sse_decode_opt_list_list_prim_u_8_strict(
@@ -165,7 +154,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
-  (String, Entry) sse_decode_record_string_entry(SseDeserializer deserializer);
+  Preload sse_decode_preload(SseDeserializer deserializer);
 
   @protected
   StorageEvent sse_decode_storage_event(SseDeserializer deserializer);
@@ -174,7 +163,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   StoreError sse_decode_store_error(SseDeserializer deserializer);
 
   @protected
-  BigInt sse_decode_u_64(SseDeserializer deserializer);
+  StoredItem sse_decode_stored_item(SseDeserializer deserializer);
+
+  @protected
+  StoredValue sse_decode_stored_value(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -191,12 +183,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_AnyhowException(
     AnyhowException self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_Map_String_entry_None(
-    Map<String, Entry> self,
     SseSerializer serializer,
   );
 
@@ -219,10 +205,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_entry(Entry self, SseSerializer serializer);
+  void sse_encode_box_autoadd_stored_value(
+    StoredValue self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
@@ -246,8 +232,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_record_string_entry(
-    List<(String, Entry)> self,
+  void sse_encode_list_stored_item(
+    List<StoredItem> self,
     SseSerializer serializer,
   );
 
@@ -258,7 +244,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+  void sse_encode_opt_box_autoadd_stored_value(
+    StoredValue? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_list_list_prim_u_8_strict(
@@ -273,10 +262,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_record_string_entry(
-    (String, Entry) self,
-    SseSerializer serializer,
-  );
+  void sse_encode_preload(Preload self, SseSerializer serializer);
 
   @protected
   void sse_encode_storage_event(StorageEvent self, SseSerializer serializer);
@@ -285,7 +271,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_store_error(StoreError self, SseSerializer serializer);
 
   @protected
-  void sse_encode_u_64(BigInt self, SseSerializer serializer);
+  void sse_encode_stored_item(StoredItem self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_stored_value(StoredValue self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
