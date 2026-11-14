@@ -4,5 +4,7 @@ mod crypto;
 pub mod error;
 pub(crate) mod events;
 mod frb_generated;
-pub(crate) mod wal;
+pub(crate) mod legacy;
+pub(crate) mod record;
 pub mod store;
+pub(crate) mod wal;

@@ -16,38 +16,53 @@ void storeOpen({required String path}) =>
 
 bool storeIsOpen() => RustLib.instance.api.crateApiStoreStoreIsOpen();
 
+PlatformInt64 storeGenerationAddress() =>
+    RustLib.instance.api.crateApiStoreStoreGenerationAddress();
+
 void storeSet({
   required String key,
   required List<int> value,
   PlatformInt64? ttlMs,
   required bool encrypted,
+  required bool durable,
 }) => RustLib.instance.api.crateApiStoreStoreSet(
   key: key,
   value: value,
   ttlMs: ttlMs,
   encrypted: encrypted,
+  durable: durable,
 );
 
 Uint8List? storeGet({required String key}) =>
     RustLib.instance.api.crateApiStoreStoreGet(key: key);
 
+StoredValue? storeGetEntry({required String key}) =>
+    RustLib.instance.api.crateApiStoreStoreGetEntry(key: key);
+
+/// Runs on a worker thread, so it doesn't block the caller.
+Future<Preload> storePreload({required PlatformInt64 limitBytes}) =>
+    RustLib.instance.api.crateApiStoreStorePreload(limitBytes: limitBytes);
+
 bool storeContains({required String key}) =>
     RustLib.instance.api.crateApiStoreStoreContains(key: key);
 
-bool storeDelete({required String key}) =>
-    RustLib.instance.api.crateApiStoreStoreDelete(key: key);
+bool storeDelete({required String key, required bool durable}) =>
+    RustLib.instance.api.crateApiStoreStoreDelete(key: key, durable: durable);
 
-void storeClear() => RustLib.instance.api.crateApiStoreStoreClear();
+void storeClear({required bool durable}) =>
+    RustLib.instance.api.crateApiStoreStoreClear(durable: durable);
 
 List<String> storeKeys() => RustLib.instance.api.crateApiStoreStoreKeys();
 
 PlatformInt64 storeLen() => RustLib.instance.api.crateApiStoreStoreLen();
 
-Map<String, Entry> storeGetAll() =>
+List<StoredItem> storeGetAll() =>
     RustLib.instance.api.crateApiStoreStoreGetAll();
 
 void storeSetEncryptionKey({required List<int> key}) =>
     RustLib.instance.api.crateApiStoreStoreSetEncryptionKey(key: key);
+
+void storeLock() => RustLib.instance.api.crateApiStoreStoreLock();
 
 Uint8List storeGenerateEncryptionKey() =>
     RustLib.instance.api.crateApiStoreStoreGenerateEncryptionKey();
@@ -56,10 +71,12 @@ PlatformInt64 storeIncrement({
   required String key,
   required PlatformInt64 delta,
   PlatformInt64? ttlMs,
+  required bool durable,
 }) => RustLib.instance.api.crateApiStoreStoreIncrement(
   key: key,
   delta: delta,
   ttlMs: ttlMs,
+  durable: durable,
 );
 
 bool storeSetIfAbsent({
@@ -67,11 +84,13 @@ bool storeSetIfAbsent({
   required List<int> value,
   PlatformInt64? ttlMs,
   required bool encrypted,
+  required bool durable,
 }) => RustLib.instance.api.crateApiStoreStoreSetIfAbsent(
   key: key,
   value: value,
   ttlMs: ttlMs,
   encrypted: encrypted,
+  durable: durable,
 );
 
 PlatformInt64 storePurgeExpired() =>
@@ -87,11 +106,13 @@ PlatformInt64 storeListPush({
   required List<int> item,
   PlatformInt64? ttlMs,
   required bool encrypted,
+  required bool durable,
 }) => RustLib.instance.api.crateApiStoreStoreListPush(
   key: key,
   item: item,
   ttlMs: ttlMs,
   encrypted: encrypted,
+  durable: durable,
 );
 
 List<Uint8List>? storeListGet({required String key}) =>
@@ -102,9 +123,11 @@ bool storeDeleteFromList({
   required List<int> item,
   PlatformInt64? ttlMs,
   required bool encrypted,
+  required bool durable,
 }) => RustLib.instance.api.crateApiStoreStoreDeleteFromList(
   key: key,
   item: item,
   ttlMs: ttlMs,
   encrypted: encrypted,
+  durable: durable,
 );

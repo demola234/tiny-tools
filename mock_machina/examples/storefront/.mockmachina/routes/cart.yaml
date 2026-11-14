@@ -5,6 +5,7 @@ items:
   route: CRUD /cart/items
   summary: The cart; list, add, update and remove items, kept in memory
   crud: { collection: cart_items, idField: id }
+  active: ok
   states:
     ok: {}
     down:

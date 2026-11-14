@@ -8,7 +8,15 @@ build:
 
 # Run the Rust core's Criterion benchmarks
 bench:
-    cd rust && cargo bench
+    cd rodinia_ffi && cargo bench
+
+# Benchmark rodinia_flutter against other Flutter storage packages (macOS, profile mode)
+bench-flutter device="macos":
+    cd benchmarks && flutter drive --profile -d {{device}} --driver=test_driver/integration_test.dart --target=integration_test/benchmark_test.dart
+
+# Run the Flutter benchmark suite plus cold start for every store on an Android device
+bench-all device:
+    cd benchmarks && tool/run_all.sh {{device}}
 
 # Run the Rust core's unit tests
 test:
